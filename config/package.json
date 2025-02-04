@@ -1,0 +1,11 @@
+{
+  "name": "@rsbuild/config",
+  "version": "1.0.1",
+  "private": true,
+  "devDependencies": {
+    "@rsbuild/core": "1.1.0",
+    "@rslib/core": "0.1.3",
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}

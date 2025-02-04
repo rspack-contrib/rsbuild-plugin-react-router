@@ -1,0 +1,86 @@
+{
+  "name": "@rsbuild/plugin-react-router",
+  "version": "0.0.1",
+  "description": "React plugin for Rsbuild",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/web-infra-dev/rsbuild",
+    "directory": "packages/plugin-react"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./templates/entry.client": {
+      "types": "./dist/templates/entry.client.d.ts",
+      "import": "./dist/templates/entry.client.js",
+      "require": "./dist/templates/entry.client.cjs"
+    },
+    "./templates/entry.server": {
+      "types": "./dist/templates/entry.server.d.ts",
+      "import": "./dist/templates/entry.server.js",
+      "require": "./dist/templates/entry.server.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rslib build",
+    "dev": "rslib build --watch"
+  },
+  "dependencies": {
+    "@babel/core": "^7.26.3",
+    "@babel/generator": "^7.26.3",
+    "@babel/parser": "^7.26.3",
+    "@babel/traverse": "^7.26.3",
+    "@babel/types": "^7.26.3",
+    "@mjackson/node-fetch-server": "^0.3.0",
+    "@react-router/node": "7.0.2",
+    "@rspack/plugin-react-refresh": "^1.0.1",
+    "babel-dead-code-elimination": "^1.0.8",
+    "esbuild": "^0.24.2",
+    "execa": "^9.5.2",
+    "isbot": "5.1.18",
+    "jsesc": "^3.1.0",
+    "pathe": "^1.1.2",
+    "react-refresh": "^0.16.0",
+    "rspack-plugin-virtual-module": "^0.1.13"
+  },
+  "devDependencies": {
+    "@react-router/dev": "7.0.2",
+    "@react-router/node": "7.0.2",
+    "@rsbuild/core": "^1.2.3",
+    "@rsbuild/config": "workspace:*",
+    "@rslib/core": "0.1.3",
+    "@rspack/core": "^1.1.6",
+    "@types/babel__core": "^7.6.8",
+    "@types/babel__generator": "^7.6.8",
+    "@types/babel__traverse": "^7.20.6",
+    "@types/jsesc": "^3.0.3",
+    "@types/node": "^22.10.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.5",
+    "jiti": "^2.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router": "7.0.2",
+    "react-router-dom": "^7.0.2",
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "@rsbuild/core": "1.x"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "packageManager": "pnpm@9.15.3+sha512.1f79bc245a66eb0b07c5d4d83131240774642caaa86ef7d0434ab47c0d16f66b04e21e0c086eb61e62c77efc4d7f7ec071afad3796af64892fae66509173893a"
+}
