@@ -18,7 +18,7 @@ export default function DocsLayout() {
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8">
         <div className="flex">
           {/* Sidebar */}
-          <aside className="hidden md:block w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-800">
+          <aside className="hidden md:block w-64 shrink-0 border-r border-gray-200 dark:border-gray-800">
             <div className="sticky top-16 pt-8 pb-4 overflow-y-auto h-[calc(100vh-4rem)]">
               <div className="mb-8">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3">

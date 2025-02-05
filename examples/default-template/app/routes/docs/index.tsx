@@ -116,7 +116,7 @@ export default function DocsIndex() {
 
       <section className="mb-12">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Next Steps</h2>
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/30 dark:hover:to-purple-900/30 transition-colors">
+        <div className="bg-linear-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/30 dark:hover:to-purple-900/30 transition-colors">
           <p className="text-lg mb-2">
             Once you're comfortable with the basics, explore our{' '}
             <Link

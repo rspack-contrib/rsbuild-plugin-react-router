@@ -26,7 +26,7 @@ export default function ProjectsLayout() {
     <div className="page-container">
       <div className="flex gap-8">
         {/* Sidebar */}
-        <aside className="w-64 flex-shrink-0">
+        <aside className="w-64 shrink-0">
           <div className="sticky top-24 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

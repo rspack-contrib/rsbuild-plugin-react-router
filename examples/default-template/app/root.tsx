@@ -14,8 +14,6 @@ import {
 
 import type { Route } from './+types/root';
 import './app.css';
-// import stylesheet from "./app.css?url";
-// console.log(stylesheet);
 
 interface RouteHandle {
   breadcrumb?: (data: any) => string;
@@ -62,7 +60,7 @@ function Navigation() {
     }));
 
   return (
-    <header className="sticky top-0 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
+    <header className="sticky top-0 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xs border-b border-gray-200 dark:border-gray-800">
       <div className="max-w-7xl mx-auto">
         {/* Main Navigation */}
         <nav className="px-4">
