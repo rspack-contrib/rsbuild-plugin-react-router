@@ -35,7 +35,6 @@ export default function handleRequest(
       <ServerRouter
         context={routerContext}
         url={request.url}
-        abortDelay={ABORT_DELAY}
       />,
       {
         [readyOption]() {

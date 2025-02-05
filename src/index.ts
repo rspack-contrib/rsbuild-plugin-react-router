@@ -3,20 +3,19 @@ import type { Config } from '@react-router/dev/config';
 import type { RouteConfigEntry } from '@react-router/dev/routes';
 import type { RsbuildPlugin, Rspack } from '@rsbuild/core';
 import * as esbuild from 'esbuild';
-import { $ } from 'execa';
 import { createJiti } from 'jiti';
 import jsesc from 'jsesc';
 import { isAbsolute, relative, resolve } from 'pathe';
 import { RspackVirtualModulePlugin } from 'rspack-plugin-virtual-module';
-import type { Babel, NodePath, ParseResult } from './babel.js';
-import { generate, parse, t, traverse } from './babel.js';
+import { generate, parse } from './babel.js';
+import { PLUGIN_NAME, SERVER_EXPORTS, CLIENT_EXPORTS, SERVER_ONLY_ROUTE_EXPORTS } from './constants.js';
 import { createDevServerMiddleware } from './dev-server.js';
 import {
   combineURLs,
   createRouteId,
   generateWithProps,
   removeExports,
-  toFunctionExpression,
+  transformRoute,
 } from './plugin-utils.js';
 
 export type PluginOptions = {
@@ -28,29 +27,6 @@ export type PluginOptions = {
   customServer?: boolean;
 };
 
-export const PLUGIN_NAME = 'rsbuild:react-router';
-
-export const SERVER_ONLY_ROUTE_EXPORTS = [
-  'loader',
-  'action',
-  'headers',
-] as const;
-export const CLIENT_ROUTE_EXPORTS = [
-  'clientAction',
-  'clientLoader',
-  'default',
-  'ErrorBoundary',
-  'handle',
-  'HydrateFallback',
-  'Layout',
-  'links',
-  'meta',
-  'shouldRevalidate',
-] as const;
-export const NAMED_COMPONENT_EXPORTS = [
-  'HydrateFallback',
-  'ErrorBoundary',
-] as const;
 
 export type Route = {
   id: string;
@@ -90,11 +66,13 @@ export const pluginReactRouter = (
 
     // Run typegen on build/dev
     api.onBeforeStartDevServer(async () => {
-      $`npx --yes react-router typegen --watch`;
+      const { $ } = await import('execa');
+       $`npx --yes react-router typegen --watch`;
     });
 
     api.onBeforeBuild(async () => {
-      await $`npx --yes react-router typegen`;
+      const { $ } = await import('execa');
+       $`npx --yes react-router typegen`;
     });
 
     const jiti = createJiti(process.cwd());
@@ -315,6 +293,7 @@ export const pluginReactRouter = (
                             routes,
                             pluginOptions,
                             compilation.getStats().toJson(),
+                            appDirectory,
                           );
 
                           const manifestPath =
@@ -396,6 +375,7 @@ export const pluginReactRouter = (
           routes,
           pluginOptions,
           clientStats,
+          appDirectory
         );
         return {
           code: `export default ${jsesc(manifest, { es6: true })};`,
@@ -494,7 +474,8 @@ async function getReactRouterManifestForDev(
   routes: Record<string, Route>,
   //@ts-ignore
   options: PluginOptions,
-  clientStats?: Rspack.StatsCompilation,
+  clientStats: Rspack.StatsCompilation | undefined,
+  context: string,
 ): Promise<{
   version: string;
   url: string;
@@ -506,11 +487,41 @@ async function getReactRouterManifestForDev(
   routes: Record<string, RouteManifestItem>;
 }> {
   const result: Record<string, RouteManifestItem> = {};
+
   for (const [key, route] of Object.entries(routes)) {
     const assets = clientStats?.assetsByChunkName?.[route.id];
     const jsAssets = assets?.filter((asset) => asset.endsWith('.js')) || [];
     const cssAssets = assets?.filter((asset) => asset.endsWith('.css')) || [];
-    clientStats?.entrypoints
+    // Read and analyze the route file to check for exports
+    const routeFilePath = resolve(context, route.file);
+    let exports = new Set<string>();
+
+    try {
+      const buildResult = await esbuild.build({
+        entryPoints: [routeFilePath],
+        bundle: false,
+        write: false,
+        metafile: true,
+        jsx: 'automatic',
+        format: 'esm',
+        platform: 'neutral',
+        loader: {
+          '.ts': 'ts',
+          '.tsx': 'tsx',
+          '.js': 'js',
+          '.jsx': 'jsx'
+        },
+      });
+
+      // Get exports from the metafile
+      const entryPoint = Object.values(buildResult.metafile.outputs)[0];
+      if (entryPoint?.exports) {
+        exports = new Set(entryPoint.exports);
+      }
+    } catch (error) {
+      console.error(`Failed to analyze route file ${routeFilePath}:`, error);
+    }
+
     result[key] = {
       id: route.id,
       parentId: route.parentId,
@@ -518,11 +529,11 @@ async function getReactRouterManifestForDev(
       index: route.index,
       caseSensitive: route.caseSensitive,
       module: combineURLs('/', jsAssets[0] || ''),
-      hasAction: false,
-      hasLoader: route.id === 'routes/home',
-      hasClientAction: false,
-      hasClientLoader: false,
-      hasErrorBoundary: route.id === 'root',
+      hasAction: exports.has(SERVER_EXPORTS.action),
+      hasLoader: exports.has(SERVER_EXPORTS.loader),
+      hasClientAction: exports.has(CLIENT_EXPORTS.clientAction),
+      hasClientLoader: exports.has(CLIENT_EXPORTS.clientLoader),
+      hasErrorBoundary: exports.has(CLIENT_EXPORTS.ErrorBoundary),
       imports: jsAssets.map((asset) => combineURLs('/', asset)),
       css: cssAssets.map((asset) => combineURLs('/', asset)),
     };
@@ -533,6 +544,7 @@ async function getReactRouterManifestForDev(
     entryAssets?.filter((asset) => asset.endsWith('.js')) || [];
   const entryCssAssets =
     entryAssets?.filter((asset) => asset.endsWith('.css')) || [];
+
   return {
     version: String(Math.random()),
     url: '/static/js/virtual/react-router/browser-manifest.js',
@@ -598,85 +610,3 @@ function generateServerBuild(
     };
   `;
 }
-
-function isNamedComponentExport(
-  name: string,
-): name is (typeof NAMED_COMPONENT_EXPORTS)[number] {
-  return (NAMED_COMPONENT_EXPORTS as readonly string[]).includes(name);
-}
-
-export const transformRoute = (ast: ParseResult<Babel.File>): void => {
-  const hocs: Array<[string, Babel.Identifier]> = [];
-  function getHocUid(path: NodePath, hocName: string) {
-    const uid = path.scope.generateUidIdentifier(hocName);
-    hocs.push([hocName, uid]);
-    return uid;
-  }
-
-  traverse(ast, {
-    ExportDeclaration(path: NodePath) {
-      if (path.isExportDefaultDeclaration()) {
-        const declaration = path.get('declaration');
-        // prettier-ignore
-        const expr =
-              declaration.isExpression() ? declaration.node :
-                  declaration.isFunctionDeclaration() ? toFunctionExpression(declaration.node) :
-                      undefined
-        if (expr) {
-          const uid = getHocUid(path, 'withComponentProps');
-          declaration.replaceWith(t.callExpression(uid, [expr]) as any);
-        }
-        return;
-      }
-
-      if (path.isExportNamedDeclaration()) {
-        const decl = path.get('declaration');
-
-        if (decl.isVariableDeclaration()) {
-          // biome-ignore lint/complexity/noForEach: <explanation>
-          decl.get('declarations').forEach((varDeclarator: NodePath) => {
-            const id = varDeclarator.get('id') as any;
-            const init = varDeclarator.get('init') as any;
-            const expr = init.node as any;
-            if (!expr) return;
-            if (!id.isIdentifier()) return;
-            const { name } = id.node;
-            if (!isNamedComponentExport(name)) return;
-
-            const uid = getHocUid(path, `with${name}Props`);
-            init.replaceWith(t.callExpression(uid, [expr]));
-          });
-          return;
-        }
-
-        if (decl.isFunctionDeclaration()) {
-          const { id } = decl.node;
-          if (!id) return;
-          const { name } = id;
-          if (!isNamedComponentExport(name)) return;
-
-          const uid = getHocUid(path, `with${name}Props`);
-          decl.replaceWith(
-            t.variableDeclaration('const', [
-              t.variableDeclarator(
-                t.identifier(name),
-                t.callExpression(uid, [toFunctionExpression(decl.node)]),
-              ),
-            ]) as any,
-          );
-        }
-      }
-    },
-  });
-
-  if (hocs.length > 0) {
-    ast.program.body.unshift(
-      t.importDeclaration(
-        hocs.map(([name, identifier]) =>
-          t.importSpecifier(identifier, t.identifier(name)),
-        ),
-        t.stringLiteral('virtual/react-router/with-props'),
-      ) as any,
-    );
-  }
-};

@@ -307,6 +307,116 @@ The custom server setup allows you to:
 - Add server-side caching
 - And more!
 
+## Cloudflare Workers Deployment
+
+To deploy your React Router app to Cloudflare Workers:
+
+1. **Configure Rsbuild** (`rsbuild.config.ts`):
+```ts
+import { defineConfig } from '@rsbuild/core';
+import { pluginReact } from '@rsbuild/plugin-react';
+import { pluginReactRouter } from '@rsbuild/plugin-react-router';
+
+export default defineConfig({
+  environments: {
+    node: {
+      performance: {
+        chunkSplit: { strategy: 'all-in-one' },
+      },
+      tools: {
+        rspack: {
+          experiments: { outputModule: true },
+          externalsType: 'module',
+          output: {
+            chunkFormat: 'module',
+            chunkLoading: 'import',
+            workerChunkLoading: 'import',
+            wasmLoading: 'fetch',
+            library: { type: 'module' },
+            module: true,
+          },
+          resolve: {
+            conditionNames: ['workerd', 'worker', 'browser', 'import', 'require'],
+          },
+        },
+      },
+    },
+  },
+  plugins: [pluginReactRouter({customServer: true}), pluginReact()],
+});
+```
+
+2. **Create Worker Entry** (`server/app.ts`):
+```ts
+import { createRequestHandler } from 'react-router';
+
+declare global {
+  interface CloudflareEnvironment extends Env {}
+  interface ImportMeta {
+    env: {
+      MODE: string;
+    };
+  }
+}
+
+declare module 'react-router' {
+  export interface AppLoadContext {
+    cloudflare: {
+      env: CloudflareEnvironment;
+      ctx: ExecutionContext;
+    };
+  }
+}
+
+// @ts-expect-error - virtual module provided by React Router at build time
+import * as serverBuild from 'virtual/react-router/server-build';
+
+const requestHandler = createRequestHandler(serverBuild, import.meta.env.MODE);
+
+export default {
+  fetch(request, env, ctx) {
+    return requestHandler(request, {
+      cloudflare: { env, ctx },
+    });
+  },
+} satisfies ExportedHandler<CloudflareEnvironment>;
+```
+
+3. **Configure Wrangler** (`wrangler.toml`):
+```toml
+workers_dev = true
+name = "my-react-router-worker"
+compatibility_date = "2024-11-18"
+main = "./build/server/static/js/app.js"
+assets = { directory = "./build/client/" }
+
+[vars]
+VALUE_FROM_CLOUDFLARE = "Hello from Cloudflare"
+```
+
+4. **Update Package Scripts** (`package.json`):
+```json
+{
+  "scripts": {
+    "build": "rsbuild build",
+    "deploy": "npm run build && wrangler deploy",
+    "dev": "rsbuild dev",
+    "start": "wrangler dev"
+  },
+  "dependencies": {
+    "@react-router/node": "^7.1.3",
+    "@react-router/serve": "^7.1.3",
+    "react-router": "^7.1.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241112.0",
+    "@react-router/cloudflare": "^7.1.3",
+    "@react-router/dev": "^7.1.3",
+    "wrangler": "^3.106.0"
+  }
+}
+```
+
 ## Development
 
 The plugin automatically:

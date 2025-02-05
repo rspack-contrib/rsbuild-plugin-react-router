@@ -37,5 +37,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [pluginReactRouter(), pluginReact()],
+  plugins: [pluginReactRouter({customServer: true}), pluginReact()],
 });

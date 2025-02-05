@@ -5,6 +5,7 @@ import {
 import { normalize } from 'pathe';
 import type { Babel, NodePath, ParseResult } from './babel.js';
 import { t, traverse } from './babel.js';
+import { NAMED_COMPONENT_EXPORTS } from './constants.js';
 
 export function validateDestructuredExports(
   id: Babel.ArrayPattern | Babel.ObjectPattern,
@@ -263,3 +264,86 @@ export const removeExports = (
     deadCodeElimination(ast, previouslyReferencedIdentifiers);
   }
 };
+
+export const transformRoute = (ast: ParseResult<Babel.File>): void => {
+  const hocs: Array<[string, Babel.Identifier]> = [];
+  function getHocUid(path: NodePath, hocName: string) {
+    const uid = path.scope.generateUidIdentifier(hocName);
+    hocs.push([hocName, uid]);
+    return uid;
+  }
+
+  traverse(ast, {
+    ExportDeclaration(path: NodePath) {
+      if (path.isExportDefaultDeclaration()) {
+        const declaration = path.get('declaration');
+        // prettier-ignore
+        const expr =
+              declaration.isExpression() ? declaration.node :
+                  declaration.isFunctionDeclaration() ? toFunctionExpression(declaration.node) :
+                      undefined
+        if (expr) {
+          const uid = getHocUid(path, 'withComponentProps');
+          declaration.replaceWith(t.callExpression(uid, [expr]) as any);
+        }
+        return;
+      }
+
+      if (path.isExportNamedDeclaration()) {
+        const decl = path.get('declaration');
+
+        if (decl.isVariableDeclaration()) {
+          // biome-ignore lint/complexity/noForEach: <explanation>
+          decl.get('declarations').forEach((varDeclarator: NodePath) => {
+            const id = varDeclarator.get('id') as any;
+            const init = varDeclarator.get('init') as any;
+            const expr = init.node as any;
+            if (!expr) return;
+            if (!id.isIdentifier()) return;
+            const { name } = id.node;
+            if (!isNamedComponentExport(name)) return;
+
+            const uid = getHocUid(path, `with${name}Props`);
+            init.replaceWith(t.callExpression(uid, [expr]));
+          });
+          return;
+        }
+
+        if (decl.isFunctionDeclaration()) {
+          const { id } = decl.node;
+          if (!id) return;
+          const { name } = id;
+          if (!isNamedComponentExport(name)) return;
+
+          const uid = getHocUid(path, `with${name}Props`);
+          decl.replaceWith(
+            t.variableDeclaration('const', [
+              t.variableDeclarator(
+                t.identifier(name),
+                t.callExpression(uid, [toFunctionExpression(decl.node)]),
+              ),
+            ]) as any,
+          );
+        }
+      }
+    },
+  });
+
+  if (hocs.length > 0) {
+    ast.program.body.unshift(
+      t.importDeclaration(
+        hocs.map(([name, identifier]) =>
+          t.importSpecifier(identifier, t.identifier(name)),
+        ),
+        t.stringLiteral('virtual/react-router/with-props'),
+      ) as any,
+    );
+  }
+};
+
+
+function isNamedComponentExport(
+  name: string,
+): name is (typeof NAMED_COMPONENT_EXPORTS)[number] {
+  return (NAMED_COMPONENT_EXPORTS as readonly string[]).includes(name);
+}
