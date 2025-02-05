@@ -13,7 +13,7 @@ export const createDevServerMiddleware = (server: any): DevServerMiddleware => {
       const bundle = (await server.environments.node.loadBundle(
         'app',
       ));
-      
+      console.log(bundle);
       if (!bundle || !bundle.routes) {
         throw new Error('Server bundle not found or invalid');
       }

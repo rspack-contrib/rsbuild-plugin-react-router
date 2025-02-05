@@ -21,25 +21,11 @@ import {
 
 export type PluginOptions = {
   /**
-   * Whether to enable Server-Side Rendering (SSR) support.
-   * @default true
+   * Whether to disable automatic middleware setup for custom server implementation.
+   * Use this when you want to handle server setup manually.
+   * @default false
    */
-  ssr?: boolean;
-  /**
-   * Build directory for output files
-   * @default 'build'
-   */
-  buildDirectory?: string;
-  /**
-   * Application source directory
-   * @default 'app'
-   */
-  appDirectory?: string;
-  /**
-   * Base URL path
-   * @default '/'
-   */
-  basename?: string;
+  customServer?: boolean;
 };
 
 export const PLUGIN_NAME = 'rsbuild:react-router';
@@ -94,13 +80,10 @@ export const pluginReactRouter = (
 
   async setup(api) {
     const defaultOptions = {
-      ssr: true,
-      buildDirectory: 'build',
-      appDirectory: 'app',
-      basename: '/',
+      customServer: false,
     };
 
-    const finalOptions = {
+    const pluginOptions = {
       ...defaultOptions,
       ...options,
     };
@@ -118,10 +101,10 @@ export const pluginReactRouter = (
 
     // Read the react-router.config.ts file first
     const {
-      appDirectory = finalOptions.appDirectory,
-      basename = finalOptions.basename,
-      buildDirectory = finalOptions.buildDirectory,
-      ssr = finalOptions.ssr,
+      appDirectory = 'app',
+      basename = '/',
+      buildDirectory = 'build',
+      ssr = true,
     } = await jiti
       .import<Config>('./react-router.config.ts', {
         default: true,
@@ -133,14 +116,7 @@ export const pluginReactRouter = (
         return {} as Config;
       });
 
-    // Update finalOptions with config values
-    finalOptions.appDirectory = appDirectory;
-    finalOptions.basename = basename;
-    finalOptions.buildDirectory = buildDirectory;
-    finalOptions.ssr = ssr;
-
-    // Remove debug console logs
-    const routesPath = resolve(finalOptions.appDirectory, 'routes.ts');
+    const routesPath = resolve(appDirectory, 'routes.ts');
 
     // Then read the routes
     const routeConfig = await jiti
@@ -166,15 +142,15 @@ export const pluginReactRouter = (
     };
 
     const entryClientPath = findEntryFile(
-      resolve(finalOptions.appDirectory, 'entry.client'),
+      resolve(appDirectory, 'entry.client'),
     );
     const entryServerPath = findEntryFile(
-      resolve(finalOptions.appDirectory, 'entry.server'),
+      resolve(appDirectory, 'entry.server'),
     );
 
     // Check for server app file
     const serverAppPath = findEntryFile(
-      resolve(finalOptions.appDirectory, '../server/app'),
+      resolve(appDirectory, '../server/app'),
     );
     const hasServerApp = existsSync(serverAppPath);
 
@@ -192,16 +168,16 @@ export const pluginReactRouter = (
       : templateServerPath;
 
     const rootRouteFile = relative(
-      finalOptions.appDirectory,
-      resolve(finalOptions.appDirectory, 'root.tsx'),
+      appDirectory,
+      resolve(appDirectory, 'root.tsx'),
     );
 
     const routes = {
       root: { path: '', id: 'root', file: rootRouteFile },
-      ...configRoutesToRouteManifest(finalOptions.appDirectory, routeConfig),
+      ...configRoutesToRouteManifest(appDirectory, routeConfig),
     };
 
-    const outputClientPath = resolve(finalOptions.buildDirectory, 'client');
+    const outputClientPath = resolve(buildDirectory, 'client');
     const assetsBuildDirectory = relative(process.cwd(), outputClientPath);
 
     let clientStats: Rspack.StatsCompilation | undefined;
@@ -218,14 +194,13 @@ export const pluginReactRouter = (
       'virtual/react-router/server-build': generateServerBuild(routes, {
         entryServerPath: finalEntryServerPath,
         assetsBuildDirectory,
-        basename: finalOptions.basename,
-        appDirectory: finalOptions.appDirectory,
-        ssr: finalOptions.ssr,
+        basename,
+        appDirectory,
+        ssr,
       }),
       'virtual/react-router/with-props': generateWithProps(),
     });
 
-    // Modify Rsbuild config
     api.modifyRsbuildConfig(async (config, { mergeRsbuildConfig }) => {
       return mergeRsbuildConfig(config, {
         output: {
@@ -235,11 +210,13 @@ export const pluginReactRouter = (
           writeToDisk: true,
           hmr: false,
           liveReload: true,
-          setupMiddlewares: [
-            (middlewares, server) => {
-              middlewares.push(createDevServerMiddleware(server));
-            },
-          ],
+          setupMiddlewares: pluginOptions.customServer
+            ? []
+            : [
+                (middlewares, server) => {
+                  middlewares.push(createDevServerMiddleware(server));
+                },
+              ],
         },
         tools: {
           rspack: {
@@ -257,7 +234,7 @@ export const pluginReactRouter = (
                   (acc: Record<string, string>, route) => {
                     acc[route.file.slice(0, route.file.lastIndexOf('.'))] =
                       `${resolve(
-                        finalOptions.appDirectory,
+                        appDirectory,
                         route.file,
                       )}?react-router-route`;
                     return acc;
@@ -303,7 +280,7 @@ export const pluginReactRouter = (
             },
             output: {
               distPath: {
-                root: resolve(finalOptions.buildDirectory, 'server'),
+                root: resolve(buildDirectory, 'server'),
               },
               target: config.environments?.node?.output?.target || 'node',
               filename: {
@@ -336,7 +313,7 @@ export const pluginReactRouter = (
                         async (compilation: Rspack.Compilation, callback) => {
                           const manifest = await getReactRouterManifestForDev(
                             routes,
-                            finalOptions,
+                            pluginOptions,
                             compilation.getStats().toJson(),
                           );
 
@@ -417,7 +394,7 @@ export const pluginReactRouter = (
         // For server manifest, use the clientStats as before
         const manifest = await getReactRouterManifestForDev(
           routes,
-          finalOptions,
+          pluginOptions,
           clientStats,
         );
         return {
@@ -533,16 +510,14 @@ async function getReactRouterManifestForDev(
     const assets = clientStats?.assetsByChunkName?.[route.id];
     const jsAssets = assets?.filter((asset) => asset.endsWith('.js')) || [];
     const cssAssets = assets?.filter((asset) => asset.endsWith('.css')) || [];
+    clientStats?.entrypoints
     result[key] = {
       id: route.id,
       parentId: route.parentId,
       path: route.path,
       index: route.index,
       caseSensitive: route.caseSensitive,
-      module: combineURLs(
-        '/static/js/',
-        `${route.file.slice(0, route.file.lastIndexOf('.'))}.js`,
-      ),
+      module: combineURLs('/', jsAssets[0] || ''),
       hasAction: false,
       hasLoader: route.id === 'routes/home',
       hasClientAction: false,
@@ -558,12 +533,11 @@ async function getReactRouterManifestForDev(
     entryAssets?.filter((asset) => asset.endsWith('.js')) || [];
   const entryCssAssets =
     entryAssets?.filter((asset) => asset.endsWith('.css')) || [];
-
   return {
     version: String(Math.random()),
     url: '/static/js/virtual/react-router/browser-manifest.js',
     entry: {
-      module: '/static/js/entry.client.js',
+      module: combineURLs('/', entryJsAssets[0] || ''),
       imports: entryJsAssets.map((asset) => combineURLs('/', asset)),
       css: entryCssAssets.map((asset) => combineURLs('/', asset)),
     },

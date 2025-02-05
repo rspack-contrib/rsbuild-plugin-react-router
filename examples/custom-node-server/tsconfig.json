@@ -2,9 +2,9 @@
   "include": [
     "./.react-router/types/**/*",
     "./app/**/*",
-    "./server/**/*",
-    "./server.js"
+    "./server/**/*"
   ],
+  "exclude": ["./build"],
   "compilerOptions": {
     "composite": true,
     "strict": true,

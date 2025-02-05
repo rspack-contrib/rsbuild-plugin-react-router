@@ -14,10 +14,12 @@ export default [
   route('about', 'routes/about.tsx'),
 
   // Docs section with nested routes
-  layout('routes/docs/layout.tsx', [
-    index('routes/docs/index.tsx'),
-    route('getting-started', 'routes/docs/getting-started.tsx'),
-    route('advanced', 'routes/docs/advanced.tsx'),
+  ...prefix('docs', [
+    layout('routes/docs/layout.tsx', [
+      index('routes/docs/index.tsx'),
+      route('getting-started', 'routes/docs/getting-started.tsx'),
+      route('advanced', 'routes/docs/advanced.tsx'),
+    ]),
   ]),
 
   // Projects section with dynamic segments

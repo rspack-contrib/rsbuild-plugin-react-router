@@ -5,7 +5,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "RSDOCTOR=true node server.js",
+    "dev": "RSDOCTOR=false node server.js",
+    "start": "NODE_ENV=production node server.js",
+    "build": "rsbuild build",
     "typecheck": "react-router typegen && tsc"
   },
   "keywords": [],
