@@ -85,7 +85,7 @@ export default {
    * Application source directory
    * @default 'app'
    */
-  appDirectory: 'src/app',
+  appDirectory: 'app',
 
   /**
    * Base URL path
@@ -346,7 +346,24 @@ export default defineConfig({
 });
 ```
 
-2. **Create Worker Entry** (`server/app.ts`):
+2. **Configure Wrangler** (`wrangler.toml`):
+```toml
+workers_dev = true
+name = "my-react-router-worker"
+compatibility_date = "2024-11-18"
+main = "./build/server/static/js/app.js"
+assets = { directory = "./build/client/" }
+
+[vars]
+VALUE_FROM_CLOUDFLARE = "Hello from Cloudflare"
+
+# Optional build configuration
+# [build]
+# command = "npm run build"
+# watch_dir = "app"
+```
+
+3. **Create Worker Entry** (`server/app.ts`):
 ```ts
 import { createRequestHandler } from 'react-router';
 
@@ -382,27 +399,9 @@ export default {
 } satisfies ExportedHandler<CloudflareEnvironment>;
 ```
 
-3. **Configure Wrangler** (`wrangler.toml`):
-```toml
-workers_dev = true
-name = "my-react-router-worker"
-compatibility_date = "2024-11-18"
-main = "./build/server/static/js/app.js"
-assets = { directory = "./build/client/" }
-
-[vars]
-VALUE_FROM_CLOUDFLARE = "Hello from Cloudflare"
-```
-
-4. **Update Package Scripts** (`package.json`):
+4. **Update Package Dependencies**:
 ```json
 {
-  "scripts": {
-    "build": "rsbuild build",
-    "deploy": "npm run build && wrangler deploy",
-    "dev": "rsbuild dev",
-    "start": "wrangler dev"
-  },
   "dependencies": {
     "@react-router/node": "^7.1.3",
     "@react-router/serve": "^7.1.3",
@@ -416,6 +415,45 @@ VALUE_FROM_CLOUDFLARE = "Hello from Cloudflare"
   }
 }
 ```
+
+5. **Setup Deployment Scripts** (`package.json`):
+```json
+{
+  "scripts": {
+    "build": "rsbuild build",
+    "deploy": "npm run build && wrangler deploy",
+    "dev": "rsbuild dev",
+    "start": "wrangler dev"
+  }
+}
+```
+
+### Key Configuration Notes:
+
+- The `workers_dev = true` setting enables deployment to workers.dev subdomain
+- `main` points to your Worker's entry point in the build output
+- `assets` directory specifies where your static client files are located
+- Environment variables can be set in the `[vars]` section
+- The `compatibility_date` should be kept up to date
+- TypeScript types are provided via `@cloudflare/workers-types`
+- Development can be done locally using `wrangler dev`
+- Deployment is handled through `wrangler deploy`
+
+### Development Workflow:
+
+1. Local Development:
+   ```bash
+   # Start local development server
+   npm run dev
+   # or
+   npm start
+   ```
+
+2. Production Deployment:
+   ```bash
+   # Build and deploy
+   npm run deploy
+   ```
 
 ## Development
 
