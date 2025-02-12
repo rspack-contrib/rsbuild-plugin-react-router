@@ -3,12 +3,6 @@ import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginReactRouter } from '@rsbuild/plugin-react-router';
 import 'react-router';
 
-declare module 'react-router' {
-  interface AppLoadContext {
-    VALUE_FROM_EXPRESS: string;
-  }
-}
-
 export default defineConfig(() => {
   return {
     output: {
@@ -17,6 +11,6 @@ export default defineConfig(() => {
           'express'
       ]
     },
-    plugins: [pluginReactRouter({customServer: true, serverOutput: 'module'}), pluginReact()],
+    plugins: [pluginReactRouter({customServer: true, serverOutput: 'commonjs'}), pluginReact()],
   };
 });

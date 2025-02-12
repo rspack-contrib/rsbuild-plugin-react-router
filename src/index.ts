@@ -72,6 +72,27 @@ export const pluginReactRouter = (
       ...options,
     };
 
+    // Add processAssets hook to emit package.json for node environment
+    if (pluginOptions.serverOutput === 'commonjs') {
+      api.processAssets(
+        {
+          stage: 'additional',
+          targets: ['node'],
+        },
+        async ({ compilation }) => {
+          const { RawSource } = compilation.compiler.webpack.sources;
+          compilation.emitAsset(
+            'package.json',
+            new RawSource(
+              JSON.stringify({
+                type: 'commonjs',
+              }),
+            ),
+          );
+        },
+      );
+    }
+
     // Run typegen on build/dev
     api.onBeforeStartDevServer(async () => {
       const { $ } = await import('execa');

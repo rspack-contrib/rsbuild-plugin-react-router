@@ -21,7 +21,7 @@ if (process.env.MOCKS === 'true') {
 }
 
 if (process.env.NODE_ENV === 'production') {
-	await import('./server-build/index.js')
+	await import('./build/server/static/js/app')
 } else {
 	await import('./server/app.ts')
 }

@@ -5,7 +5,7 @@ import { ip as ipAddress } from 'address'
 import chalk from 'chalk'
 import closeWithGrace from 'close-with-grace'
 import compression from 'compression'
-import express from 'express'
+import express, { type RequestHandler } from 'express'
 import rateLimit from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
 import helmet from 'helmet'
@@ -78,11 +78,14 @@ export async function createApp(devServer?: any) {
 		app.use(express.static('build/client', { maxAge: '1h' }))
 	}
 
-	app.get(['/img/*', '/favicons/*'], (_req, res) => {
+	app.get(['/img/*', '/favicons/*'], ((
+		_req: express.Request,
+		res: express.Response,
+	) => {
 		// if we made it past the express.static for these, then we're missing something.
 		// So we'll just send a 404 and won't bother calling other middleware.
-		return res.status(404).send('Not found')
-	})
+		res.status(404).send('Not found')
+	}) as RequestHandler)
 
 	morgan.token('url', (req) => {
 		try {
