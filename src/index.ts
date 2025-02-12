@@ -25,6 +25,13 @@ export type PluginOptions = {
    * @default false
    */
   customServer?: boolean;
+
+  /**
+   * The output format for server builds.
+   * When set to "module", no package.json will be emitted.
+   * @default "module"
+   */
+  serverOutput?: 'module' | 'commonjs';
 };
 
 
@@ -57,6 +64,7 @@ export const pluginReactRouter = (
   async setup(api) {
     const defaultOptions = {
       customServer: false,
+      serverOutput: 'module' as const,
     };
 
     const pluginOptions = {
@@ -269,6 +277,18 @@ export const pluginReactRouter = (
               rspack: {
                 externals: ['express'],
                 dependencies: ['web'],
+                experiments: {
+                  outputModule: pluginOptions.serverOutput === 'module',
+                },
+                externalsType: pluginOptions.serverOutput,
+                output: {
+                  chunkFormat: pluginOptions.serverOutput,
+                  chunkLoading: pluginOptions.serverOutput === 'module' ? 'import' : 'require',
+                  workerChunkLoading: pluginOptions.serverOutput === 'module' ? 'import' : 'require',
+                  wasmLoading: 'fetch',
+                  library: { type: pluginOptions.serverOutput },
+                  module: pluginOptions.serverOutput === 'module',
+                },
               },
             },
           },
@@ -352,7 +372,7 @@ export const pluginReactRouter = (
     api.processAssets(
       { stage: 'additional', targets: ['node'] },
       ({ sources, compilation }) => {
-        const source = new sources.RawSource('{"type": "commonjs"}');
+        const source = new sources.RawSource(`{"type": "${pluginOptions.serverOutput}"}`);
         compilation.emitAsset('package.json', source);
       },
     );
