@@ -81,14 +81,18 @@ export const pluginReactRouter = (
         },
         async ({ compilation }) => {
           const { RawSource } = compilation.compiler.webpack.sources;
-          compilation.emitAsset(
-            'package.json',
-            new RawSource(
-              JSON.stringify({
-                type: 'commonjs',
-              }),
-            ),
+          const packageJsonPath = 'package.json';
+          const source = new RawSource(
+            JSON.stringify({
+              type: 'commonjs',
+            }),
           );
+          
+          if (compilation.getAsset(packageJsonPath)) {
+            compilation.updateAsset(packageJsonPath, source);
+          } else {
+            compilation.emitAsset(packageJsonPath, source);
+          }
         },
       );
     }
@@ -393,8 +397,14 @@ export const pluginReactRouter = (
     api.processAssets(
       { stage: 'additional', targets: ['node'] },
       ({ sources, compilation }) => {
+        const packageJsonPath = 'package.json';
         const source = new sources.RawSource(`{"type": "${pluginOptions.serverOutput}"}`);
-        compilation.emitAsset('package.json', source);
+        
+        if (compilation.getAsset(packageJsonPath)) {
+          compilation.updateAsset(packageJsonPath, source);
+        } else {
+          compilation.emitAsset(packageJsonPath, source);
+        }
       },
     );
 
