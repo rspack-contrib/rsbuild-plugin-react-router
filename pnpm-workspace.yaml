@@ -1,4 +1,5 @@
 packages:
   - "."
+  - "config"
   - "examples/*"
   - "config"

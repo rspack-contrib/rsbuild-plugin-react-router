@@ -25,6 +25,13 @@ export type PluginOptions = {
    * @default false
    */
   customServer?: boolean;
+
+  /**
+   * The output format for server builds.
+   * When set to "module", no package.json will be emitted.
+   * @default "module"
+   */
+  serverOutput?: 'module' | 'commonjs';
 };
 
 
@@ -57,12 +64,38 @@ export const pluginReactRouter = (
   async setup(api) {
     const defaultOptions = {
       customServer: false,
+      serverOutput: 'module' as const,
     };
 
     const pluginOptions = {
       ...defaultOptions,
       ...options,
     };
+
+    // Add processAssets hook to emit package.json for node environment
+    if (pluginOptions.serverOutput === 'commonjs') {
+      api.processAssets(
+        {
+          stage: 'additional',
+          targets: ['node'],
+        },
+        async ({ compilation }) => {
+          const { RawSource } = compilation.compiler.webpack.sources;
+          const packageJsonPath = 'package.json';
+          const source = new RawSource(
+            JSON.stringify({
+              type: 'commonjs',
+            }),
+          );
+
+          if (compilation.getAsset(packageJsonPath)) {
+            compilation.updateAsset(packageJsonPath, source);
+          } else {
+            compilation.emitAsset(packageJsonPath, source);
+          }
+        },
+      );
+    }
 
     // Run typegen on build/dev
     api.onBeforeStartDevServer(async () => {
@@ -128,7 +161,7 @@ export const pluginReactRouter = (
 
     // Check for server app file
     const serverAppPath = findEntryFile(
-      resolve(appDirectory, '../server/app'),
+      resolve(appDirectory, '../server/index'),
     );
     const hasServerApp = existsSync(serverAppPath);
 
@@ -269,6 +302,18 @@ export const pluginReactRouter = (
               rspack: {
                 externals: ['express'],
                 dependencies: ['web'],
+                experiments: {
+                  outputModule: pluginOptions.serverOutput === 'module',
+                },
+                externalsType: pluginOptions.serverOutput,
+                output: {
+                  chunkFormat: pluginOptions.serverOutput,
+                  chunkLoading: pluginOptions.serverOutput === 'module' ? 'import' : 'require',
+                  workerChunkLoading: pluginOptions.serverOutput === 'module' ? 'import' : 'require',
+                  wasmLoading: 'fetch',
+                  library: { type: pluginOptions.serverOutput },
+                  module: pluginOptions.serverOutput === 'module',
+                },
               },
             },
           },
@@ -352,8 +397,14 @@ export const pluginReactRouter = (
     api.processAssets(
       { stage: 'additional', targets: ['node'] },
       ({ sources, compilation }) => {
-        const source = new sources.RawSource('{"type": "commonjs"}');
-        compilation.emitAsset('package.json', source);
+        const packageJsonPath = 'package.json';
+        const source = new sources.RawSource(`{"type": "${pluginOptions.serverOutput}"}`);
+
+        if (compilation.getAsset(packageJsonPath)) {
+          compilation.updateAsset(packageJsonPath, source);
+        } else {
+          compilation.emitAsset(packageJsonPath, source);
+        }
       },
     );
 

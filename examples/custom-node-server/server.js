@@ -20,7 +20,7 @@ async function startServer() {
 
     app.use(async (req, res, next) => {
       try {
-        const bundle = /** @type {import("./server/app")} */ (
+        const bundle = /** @type {import("./server/index.js")} */ (
           await devServer.environments.node.loadBundle('app')
         );
         await bundle.app(req, res, next);
