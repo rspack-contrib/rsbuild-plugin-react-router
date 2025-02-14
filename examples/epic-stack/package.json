@@ -15,7 +15,7 @@
     "build:remix": "rsbuild build",
     "build:server": "tsx ./other/build-server.ts",
     "predev": "npm run build:icons --silent",
-    "dev": "cross-env NODE_ENV=development MOCKS=true node ./server/dev-server.js",
+    "dev": "cross-env NODE_ENV=development MOCKS=true tsx ./server/dev-server.js",
     "prisma:studio": "prisma studio",
     "format": "prettier --write .",
     "lint": "eslint .",

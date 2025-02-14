@@ -38,7 +38,6 @@ export async function sendEmail({
 		...options,
 		...(react ? await renderReactEmail(react) : null),
 	}
-
 	// feel free to remove this condition once you've set up resend
 	if (!process.env.RESEND_API_KEY && !process.env.MOCKS) {
 		console.error(`RESEND_API_KEY not set and we're not in mocks mode.`)

@@ -209,7 +209,7 @@ export default defineConfig(() => {
 
 When using a custom server, you'll need to:
 
-1. Create a server handler (`server/app.ts`):
+1. Create a server handler (`server/index.ts`):
 ```ts
 import { createRequestHandler } from '@react-router/express';
 
@@ -363,7 +363,7 @@ VALUE_FROM_CLOUDFLARE = "Hello from Cloudflare"
 # watch_dir = "app"
 ```
 
-3. **Create Worker Entry** (`server/app.ts`):
+3. **Create Worker Entry** (`server/index.ts`):
 ```ts
 import { createRequestHandler } from 'react-router';
 

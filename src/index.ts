@@ -87,7 +87,7 @@ export const pluginReactRouter = (
               type: 'commonjs',
             }),
           );
-          
+
           if (compilation.getAsset(packageJsonPath)) {
             compilation.updateAsset(packageJsonPath, source);
           } else {
@@ -161,7 +161,7 @@ export const pluginReactRouter = (
 
     // Check for server app file
     const serverAppPath = findEntryFile(
-      resolve(appDirectory, '../server/app'),
+      resolve(appDirectory, '../server/index'),
     );
     const hasServerApp = existsSync(serverAppPath);
 
@@ -399,7 +399,7 @@ export const pluginReactRouter = (
       ({ sources, compilation }) => {
         const packageJsonPath = 'package.json';
         const source = new sources.RawSource(`{"type": "${pluginOptions.serverOutput}"}`);
-        
+
         if (compilation.getAsset(packageJsonPath)) {
           compilation.updateAsset(packageJsonPath, source);
         } else {

@@ -1,7 +1,6 @@
 import { remember } from '@epic-web/remember'
 import {PrismaClient}  from '@prisma/client/index'
 
-debugger;
 import chalk from 'chalk'
 
 export const prisma = remember('prisma', () => {

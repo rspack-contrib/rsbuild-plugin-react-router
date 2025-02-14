@@ -8,7 +8,7 @@ export default defineConfig(() => {
     output: {
       externals: [
           'better-sqlite3',
-          'express'
+          'express',
       ]
     },
     plugins: [pluginReactRouter({customServer: true, serverOutput: 'commonjs'}), pluginReact()],
