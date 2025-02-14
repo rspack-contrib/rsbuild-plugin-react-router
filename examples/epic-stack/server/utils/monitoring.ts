@@ -1,10 +1,9 @@
-import prismaInstrumentation from '@prisma/instrumentation'
+import {PrismaInstrumentation} from '@prisma/instrumentation'
 import * as Sentry from '@sentry/node'
 import { nodeProfilingIntegration } from '@sentry/profiling-node'
 
 // prisma's exports are wrong...
 // https://github.com/prisma/prisma/issues/23410
-const { PrismaInstrumentation } = prismaInstrumentation
 
 export function init() {
 	Sentry.init({
