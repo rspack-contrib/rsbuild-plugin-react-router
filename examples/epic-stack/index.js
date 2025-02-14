@@ -22,11 +22,10 @@ if (process.env.MOCKS === 'true') {
 }
 
 if (process.env.NODE_ENV === 'production') {
-
 	let build = (await import('./build/server/static/js/app.js'))
 	build = build?.default || build;
 	build = build?.createApp || build
 	build();
 } else {
-	await import('./server/dev-server.js')
+	await import('./server/dev-build.js')
 }
