@@ -2,3 +2,4 @@ packages:
   - "."
   - "config"
   - "examples/*"
+  - "config"
