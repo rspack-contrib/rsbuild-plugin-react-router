@@ -6,8 +6,9 @@ export default defineConfig(() => {
   return {
     plugins: [
       pluginReactRouter({
-        customServer: true
-      }), 
+        customServer: true,
+        serverOutput: 'commonjs',
+      }),
       pluginReact()
     ],
   };

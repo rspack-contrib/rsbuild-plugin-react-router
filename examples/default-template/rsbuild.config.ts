@@ -11,11 +11,6 @@ declare module 'react-router' {
 
 export default defineConfig(() => {
   return {
-    dev: {
-      watchFiles: {
-        paths: ['app/**/*'],
-      },
-    },
-    plugins: [pluginReactRouter({serverOutput: 'commonjs'}), pluginReact()],
+    plugins: [pluginReactRouter({serverOutput: "commonjs"}), pluginReact()],
   };
 });
