@@ -17,38 +17,38 @@ test.describe('Docs Section', () => {
     await expect(page).toHaveURL('/docs/advanced');
     
     // Verify layouts are preserved during navigation
-    // This assumes there's a common layout element across all docs pages
     await page.goto('/docs');
     
-    // This is a placeholder - you may need to adjust this based on your actual layout structure
-    // For example, if you have a sidebar that's part of the layout
-    await expect(page.locator('nav, aside, .sidebar').first()).toBeVisible();
+    // Check for the main navigation menu
+    const mainNav = page.locator('header nav');
+    await expect(mainNav).toBeVisible();
+    await expect(mainNav.locator('a[href="/docs"]')).toBeVisible();
   });
   
   test('should preserve layout when navigating between nested routes', async ({ page }) => {
     // Start at docs index
     await page.goto('/docs');
     
-    // Click on a link to getting-started (assuming there's a navigation menu in the layout)
-    // Modify this locator based on your actual navigation structure
-    const gettingStartedLink = page.locator('a[href="/docs/getting-started"]');
-    if (await gettingStartedLink.isVisible()) {
-      await gettingStartedLink.click();
-      await expect(page).toHaveURL('/docs/getting-started');
-      
-      // The layout should still be visible
-      // Replace with your layout-specific selector
-      await expect(page.locator('nav, aside, .sidebar').first()).toBeVisible();
-      
-      // Now try the advanced page
-      const advancedLink = page.locator('a[href="/docs/advanced"]');
-      if (await advancedLink.isVisible()) {
-        await advancedLink.click();
-        await expect(page).toHaveURL('/docs/advanced');
-        
-        // Layout should still be preserved
-        await expect(page.locator('nav, aside, .sidebar').first()).toBeVisible();
-      }
-    }
+    // Click on the Documentation link in the main nav
+    const mainNav = page.locator('header nav');
+    const docsLink = mainNav.locator('a[href="/docs"]');
+    await expect(docsLink).toBeVisible();
+    await expect(docsLink).toHaveAttribute('aria-current', 'page');
+    
+    // Navigate to getting-started
+    await page.goto('/docs/getting-started');
+    await expect(page).toHaveURL('/docs/getting-started');
+    
+    // The main navigation should still be visible
+    await expect(mainNav).toBeVisible();
+    await expect(docsLink).toBeVisible();
+    
+    // Navigate to advanced
+    await page.goto('/docs/advanced');
+    await expect(page).toHaveURL('/docs/advanced');
+    
+    // Navigation should still be preserved
+    await expect(mainNav).toBeVisible();
+    await expect(docsLink).toBeVisible();
   });
 }); 
