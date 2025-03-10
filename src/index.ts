@@ -1,4 +1,5 @@
 import {existsSync} from 'node:fs';
+import {copySync} from 'fs-extra';
 import type {Config} from '@react-router/dev/config';
 import type {RouteConfigEntry} from '@react-router/dev/routes';
 import type {RsbuildPlugin, Rspack} from '@rsbuild/core';
@@ -32,6 +33,11 @@ export type PluginOptions = {
      * @default "module"
      */
     serverOutput?: 'module' | 'commonjs';
+
+    /**
+     * Federation mode configuration
+     */
+    federation?: boolean;
 };
 
 
@@ -196,6 +202,14 @@ export const pluginReactRouter = (
             if (environment.name === 'web') {
                 clientStats = stats?.toJson();
             }
+            if(pluginOptions.federation && ssr) {
+                const serverBuildDir = resolve(buildDirectory, 'server/static');
+                const clientBuildDir = resolve(buildDirectory, 'client');
+                if(existsSync(serverBuildDir)) {
+                    const ssrDir = resolve(clientBuildDir, 'static/ssr');
+                    copySync(serverBuildDir, ssrDir);
+                }
+            }
         });
 
         // Create virtual modules for React Router
@@ -215,7 +229,7 @@ export const pluginReactRouter = (
         api.modifyRsbuildConfig(async (config, {mergeRsbuildConfig}) => {
             return mergeRsbuildConfig(config, {
                 output: {
-                    assetPrefix: '/',
+                    assetPrefix: config.output?.assetPrefix || '/',
                 },
                 dev: {
                     writeToDisk: true,
@@ -238,7 +252,8 @@ export const pluginReactRouter = (
                     web: {
                         source: {
                             entry: {
-                                'entry.client': finalEntryClientPath,
+                                // no query needed when federation is disabled
+                                'entry.client': finalEntryClientPath + (options.federation ? '?react-router-route-federation' : ''),
                                 'virtual/react-router/browser-manifest':
                                     'virtual/react-router/browser-manifest',
                                 ...Object.values(routes).reduce(
@@ -247,7 +262,7 @@ export const pluginReactRouter = (
                                             import: `${resolve(
                                                 appDirectory,
                                                 route.file,
-                                            )}?react-router-route-federation`,
+                                            )}?react-router-route${options.federation ? '-federation' : ''}`,
                                         }
                                         return acc;
                                     },
@@ -256,6 +271,9 @@ export const pluginReactRouter = (
                             },
                         },
                         output: {
+                            filename: {
+                                js: '[name].js',
+                            },
                             distPath: {
                                 root: outputClientPath,
                             },
@@ -302,6 +320,7 @@ topLevelAwait: true,
                         },
                         tools: {
                             rspack: {
+                                target: options.federation ? 'async-node': undefined,
                                 externals: ['express'],
                                 dependencies: ['web'],
                                 experiments: {
@@ -507,8 +526,6 @@ topLevelAwait: true,
                 }
   export { ${output.exports.map(exp => exp === 'default' ? 'defaultExport as default' : exp).join(', ')} };
 `;
-
-                debugger
                 return res;
 
             },
