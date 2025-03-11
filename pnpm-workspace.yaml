@@ -2,4 +2,5 @@ packages:
   - "."
   - "config"
   - "examples/*"
+  - "examples/federation/*"
   - "config"

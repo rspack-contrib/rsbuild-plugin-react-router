@@ -52,6 +52,7 @@
     "babel-dead-code-elimination": "^1.0.8",
     "esbuild": "^0.24.2",
     "execa": "^9.5.2",
+    "fs-extra": "11.3.0",
     "isbot": "5.1.18",
     "jiti": "^2.4.2",
     "jsesc": "^3.1.0",
@@ -69,6 +70,7 @@
     "@types/babel__core": "^7.6.8",
     "@types/babel__generator": "^7.6.8",
     "@types/babel__traverse": "^7.20.6",
+    "@types/fs-extra": "11.0.4",
     "@types/jsesc": "^3.0.3",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
@@ -98,7 +100,12 @@
       "react-router-dom": "^7.1.3",
       "@react-router/node": "^7.1.3",
       "@react-router/dev": "^7.1.3",
-      "@types/express": "^5.0.0"
+      "@types/express": "^5.0.0",
+      "@rspack/core": "../rspack/packages/rspack",
+      "@rspack/cli": "../rspack/packages/rspack-cli",
+      "@rspack/binding": "../rspack/crates/node_binding",
+      "@rspack/tracing": "../rspack/packages/rspack-tracing",
+      "@rspack/dev-server": "../rspack/packages/rspack-dev-server"
     }
   }
 }

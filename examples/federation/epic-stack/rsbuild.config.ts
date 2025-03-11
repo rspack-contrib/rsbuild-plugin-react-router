@@ -1,19 +1,107 @@
+import { ModuleFederationPlugin } from '@module-federation/enhanced/rspack'
 import { defineConfig } from '@rsbuild/core'
 import { pluginReact } from '@rsbuild/plugin-react'
 import { pluginReactRouter } from '@rsbuild/plugin-react-router'
+
 import 'react-router'
 
-export default defineConfig(() => {
-	return {
-		server: {
-			port: process.env.PORT || 3000,
+export default defineConfig({
+	dev: {
+		client: {
+			overlay: false,
 		},
-		output: {
-			externals: ['better-sqlite3', 'express'],
+	},
+	server: {
+		port: Number(process.env.PORT || 3000),
+	},
+	output: {
+		externals: ['better-sqlite3', 'express','ws'],
+	},
+	environments: {
+		web: {
+			source: {
+				define: {
+					"process.env.WEB": 'true'
+				}
+			},
+			tools: {
+				rspack: {
+					plugins: [
+						new ModuleFederationPlugin({
+							name: 'remote',
+							runtime: false,
+							remoteType: 'import',
+							remotes: {
+								remote: 'http://localhost:3001/static/js/remote.json',
+							},
+							shared: {
+								react: {
+									singleton: true,
+								},
+								'react/jsx-dev-runtime': {
+									singleton: true,
+								},
+								'react/jsx-runtime': {
+									singleton: true,
+								},
+								'react-dom': {
+									singleton: true,
+								},
+							},
+						})
+					]
+				}
+			},
+			plugins: []
 		},
-		plugins: [
-			pluginReactRouter({ customServer: true, serverOutput: 'commonjs' }),
-			pluginReact(),
-		],
-	}
+		node: {
+			source: {
+				define: {
+					"process.env.WEB": 'false'
+				}
+			},
+			tools: {
+				rspack: {
+					plugins: [
+						new ModuleFederationPlugin({
+							name: 'remote',
+							runtime: false,
+							remotes: {
+								remote: 'remote@http://localhost:3001/static/static/js/remote.js',
+							},
+							shared: {
+								react: {
+									singleton: true,
+								},
+								'react/jsx-dev-runtime': {
+									singleton: true,
+								},
+								'react/jsx-runtime': {
+									singleton: true,
+								},
+								'react-dom': {
+									singleton: true,
+								},
+							},
+						})
+					]
+				}
+			},
+			plugins: []
+		}
+	},
+	plugins: [
+		pluginReactRouter({ customServer: true, serverOutput: 'commonjs', federation: true }),
+		pluginReact({
+			fastRefresh: false,
+			swcReactOptions: {
+				refresh: false,
+				development: false
+			},
+			reactRefreshOptions: {
+				overlay: false,
+				exclude: /root/,
+			},
+		}),
+	],
 })

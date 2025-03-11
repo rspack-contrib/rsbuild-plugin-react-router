@@ -1,0 +1,13 @@
+{
+  "name": "federation-example",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"cd epic-stack && pnpm dev\" \"cd epic-stack-remote && pnpm dev\"",
+    "build": "concurrently \"cd epic-stack && pnpm build\" \"cd epic-stack-remote && pnpm build\"",
+    "setup": "concurrently \"cd epic-stack && pnpm setup\" \"cd epic-stack-remote && pnpm setup\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 

@@ -9,7 +9,14 @@ import jsesc from 'jsesc';
 import {isAbsolute, relative, resolve} from 'pathe';
 import {RspackVirtualModulePlugin} from 'rspack-plugin-virtual-module';
 import {generate, parse} from './babel.js';
-import {PLUGIN_NAME, SERVER_EXPORTS, CLIENT_EXPORTS, SERVER_ONLY_ROUTE_EXPORTS} from './constants.js';
+import {
+    PLUGIN_NAME,
+    SERVER_EXPORTS,
+    CLIENT_EXPORTS,
+    SERVER_ONLY_ROUTE_EXPORTS,
+    JS_EXTENSIONS,
+    JS_LOADERS
+} from './constants.js';
 import {createDevServerMiddleware} from './dev-server.js';
 import {
     combineURLs,
@@ -17,50 +24,13 @@ import {
     generateWithProps,
     removeExports,
     transformRoute,
+    findEntryFile,
 } from './plugin-utils.js';
-
-export type PluginOptions = {
-    /**
-     * Whether to disable automatic middleware setup for custom server implementation.
-     * Use this when you want to handle server setup manually.
-     * @default false
-     */
-    customServer?: boolean;
-
-    /**
-     * The output format for server builds.
-     * When set to "module", no package.json will be emitted.
-     * @default "module"
-     */
-    serverOutput?: 'module' | 'commonjs';
-
-    /**
-     * Federation mode configuration
-     */
-    federation?: boolean;
-};
-
-
-export type Route = {
-    id: string;
-    parentId?: string;
-    file: string;
-    path?: string;
-    index?: boolean;
-    caseSensitive?: boolean;
-    children?: Route[];
-};
-
-export type RouteManifestItem = Omit<Route, 'file' | 'children'> & {
-    module: string;
-    hasAction: boolean;
-    hasLoader: boolean;
-    hasClientAction: boolean;
-    hasClientLoader: boolean;
-    hasErrorBoundary: boolean;
-    imports: string[];
-    css: string[];
-};
+import type {Route, PluginOptions, RouteManifestItem} from './types.js';
+import {generateServerBuild} from './server-utils.js';
+import {getReactRouterManifestForDev, configRoutesToRouteManifest} from './manifest.js';
+import {createModifyBrowserManifestPlugin} from './modify-browser-manifest.js';
+import {transformRouteFederation} from './transform-route-federation.js';
 
 export const pluginReactRouter = (
     options: PluginOptions = {},
@@ -146,18 +116,6 @@ export const pluginReactRouter = (
                 return [] as RouteConfigEntry[];
             });
 
-        const jsExtensions = ['.tsx', '.ts', '.jsx', '.js', '.mjs'];
-
-        const findEntryFile = (basePath: string) => {
-            for (const ext of jsExtensions) {
-                const filePath = `${basePath}${ext}`;
-                if (existsSync(filePath)) {
-                    return filePath;
-                }
-            }
-            return `${basePath}.tsx`; // Default to .tsx if no file exists
-        };
-
         const entryClientPath = findEntryFile(
             resolve(appDirectory, 'entry.client'),
         );
@@ -202,11 +160,11 @@ export const pluginReactRouter = (
             if (environment.name === 'web') {
                 clientStats = stats?.toJson();
             }
-            if(pluginOptions.federation && ssr) {
-                const serverBuildDir = resolve(buildDirectory, 'server/static');
+            if (pluginOptions.federation && ssr) {
+                const serverBuildDir = resolve(buildDirectory, 'server');
                 const clientBuildDir = resolve(buildDirectory, 'client');
-                if(existsSync(serverBuildDir)) {
-                    const ssrDir = resolve(clientBuildDir, 'static/ssr');
+                if (existsSync(serverBuildDir)) {
+                    const ssrDir = resolve(clientBuildDir, 'static');
                     copySync(serverBuildDir, ssrDir);
                 }
             }
@@ -222,6 +180,7 @@ export const pluginReactRouter = (
                 basename,
                 appDirectory,
                 ssr,
+                federation: true,
             }),
             'virtual/react-router/with-props': generateWithProps(),
         });
@@ -262,7 +221,7 @@ export const pluginReactRouter = (
                                             import: `${resolve(
                                                 appDirectory,
                                                 route.file,
-                                            )}?react-router-route${options.federation ? '-federation' : ''}`,
+                                            )}?${options.federation ? 'react-router-route-federation' : 'react-router-route'}`,
                                         }
                                         return acc;
                                     },
@@ -282,7 +241,7 @@ export const pluginReactRouter = (
                             rspack: {
                                 name: 'web',
                                 experiments: {
-topLevelAwait: true,
+                                    topLevelAwait: true,
                                     outputModule: true,
                                 },
                                 externalsType: 'module',
@@ -304,9 +263,9 @@ topLevelAwait: true,
                         source: {
                             entry: {
                                 ...(hasServerApp
-                                    ? {app: serverAppPath}
-                                    : {app: 'virtual/react-router/server-build'}),
-                                'entry.server': finalEntryServerPath,
+                                    ? {app: serverAppPath + (options.federation ? '?react-router-route-federation' : '')}
+                                    : {app: 'virtual/react-router/server-build' + (options.federation ? '?react-router-route-federation' : '')}),
+                                'entry.server': finalEntryServerPath + (options.federation ? '?react-router-route-federation':''),
                             },
                         },
                         output: {
@@ -320,7 +279,7 @@ topLevelAwait: true,
                         },
                         tools: {
                             rspack: {
-                                target: options.federation ? 'async-node': undefined,
+                                target: 'async-node',
                                 externals: ['express'],
                                 dependencies: ['web'],
                                 experiments: {
@@ -329,12 +288,15 @@ topLevelAwait: true,
                                 externalsType: pluginOptions.serverOutput,
                                 output: {
                                     chunkFormat: pluginOptions.serverOutput,
-                                    chunkLoading: pluginOptions.serverOutput === 'module' ? 'import' : 'require',
+                                    chunkLoading: pluginOptions.serverOutput === 'module' ? 'import' : (options.federation ? 'async-node' : 'require'),
                                     workerChunkLoading: pluginOptions.serverOutput === 'module' ? 'import' : 'require',
                                     wasmLoading: 'fetch',
                                     library: {type: pluginOptions.serverOutput},
                                     module: pluginOptions.serverOutput === 'module',
                                 },
+                                // optimization: {
+                                //     runtimeChunk: 'single',
+                                // },
                             },
                         },
                     },
@@ -350,61 +312,13 @@ topLevelAwait: true,
                         tools: {
                             rspack: (rspackConfig) => {
                                 if (rspackConfig.plugins) {
-                                    rspackConfig.plugins.push({
-                                        apply(compiler: Rspack.Compiler) {
-                                            compiler.hooks.emit.tapAsync(
-                                                'ModifyBrowserManifest',
-                                                async (compilation: Rspack.Compilation, callback) => {
-                                                    const manifest = await getReactRouterManifestForDev(
-                                                        routes,
-                                                        pluginOptions,
-                                                        compilation.getStats().toJson(),
-                                                        appDirectory,
-                                                    );
-
-                                                    const manifestPath =
-                                                        'static/js/virtual/react-router/browser-manifest.js';
-                                                    if (compilation.assets[manifestPath]) {
-                                                        const originalSource = compilation.assets[
-                                                            manifestPath
-                                                            ]
-                                                            .source()
-                                                            .toString();
-                                                        const newSource = originalSource.replace(
-                                                            /["'`]PLACEHOLDER["'`]/,
-                                                            jsesc(manifest, {es6: true}),
-                                                        );
-                                                        compilation.assets[manifestPath] = {
-                                                            source: () => newSource,
-                                                            size: () => newSource.length,
-                                                            map: () => ({
-                                                                version: 3,
-                                                                sources: [manifestPath],
-                                                                names: [],
-                                                                mappings: '',
-                                                                file: manifestPath,
-                                                                sourcesContent: [newSource],
-                                                            }),
-                                                            sourceAndMap: () => ({
-                                                                source: newSource,
-                                                                map: {
-                                                                    version: 3,
-                                                                    sources: [manifestPath],
-                                                                    names: [],
-                                                                    mappings: '',
-                                                                    file: manifestPath,
-                                                                    sourcesContent: [newSource],
-                                                                },
-                                                            }),
-                                                            updateHash: (hash) => hash.update(newSource),
-                                                            buffer: () => Buffer.from(newSource),
-                                                        };
-                                                    }
-                                                    callback();
-                                                },
-                                            );
-                                        },
-                                    });
+                                    rspackConfig.plugins.push(
+                                        createModifyBrowserManifestPlugin(
+                                            routes,
+                                            pluginOptions,
+                                            appDirectory
+                                        )
+                                    );
                                 }
                                 return rspackConfig;
                             },
@@ -460,84 +374,17 @@ topLevelAwait: true,
                 resourceQuery: /\?react-router-route-federation/,
             },
             async (args) => {
-                let code = args.code;
-                const defaultExportMatch = code.match(/\n\s{0,}([\w\d_]+)\sas default,?/);
-                if (defaultExportMatch && typeof defaultExportMatch.index === 'number') {
-                  code =
-                    code.slice(0, defaultExportMatch.index) +
-                    code.slice(defaultExportMatch.index + defaultExportMatch[0].length);
-                  code += `\nexport default ${defaultExportMatch[1]};`;
-                }
-
-                // Step 2: Parse the input code into an AST.
-                const ast = parse(code, {
-                  sourceType: 'module',
-                  plugins: ['typescript', 'jsx'], // Adjust plugins based on your needs.
-                });
-
-                // Step 3: Remove export declarations in a web environment.
-                if (args.environment && args.environment.name === 'web') {
-                  const SERVER_ONLY_ROUTE_EXPORTS = ['serverOnlyExport1', 'serverOnlyExport2'];
-                  removeExports(ast, SERVER_ONLY_ROUTE_EXPORTS);
-                }
-
-                // Step 4: Apply any additional AST transformations.
-                transformRoute(ast);
-
-                // Step 5: Generate the transformed code while retaining the original formatting.
-                const generated = generate(ast, {
-                  sourceMaps: true,
-                  filename: args.resource,
-                  sourceFileName: args.resourcePath,
-                  retainLines: true,   // Retain original line breaks as much as possible.
-                  compact: false,
-                  concise: false,
-                });
-
-                const transformedCode = generated.code;
-
-                // Step 6: Process the transformed code with esbuild.build().
-                const result = await esbuild.build({
-                  bundle: false,
-                  write: false,
-                  metafile: true,
-                  jsx: 'automatic',
-                  format: 'esm',
-                  platform: 'neutral',
-                  loader: {
-                    '.ts': 'ts',
-                    '.tsx': 'tsx',
-                  },
-                  stdin: {
-                    contents: transformedCode,
-                    resolveDir: args.context || undefined,
-                    sourcefile: args.resourcePath,
-                  },
-                });
-
-                const output = result.metafile.outputs['stdin.js']
-
-                const res = `
-  const moduleProxy = await import('${args.resourcePath}?react-router-route');
-  ${
-                    output.exports.includes('default')
-                        ? `const { default: defaultExport, ${output.exports.filter(exp => exp !== 'default').join(', ')} } = moduleProxy;`
-                        : `const { ${output.exports.join(', ')} } = moduleProxy;`
-                }
-  export { ${output.exports.map(exp => exp === 'default' ? 'defaultExport as default' : exp).join(', ')} };
-`;
-                return res;
-
+                return await transformRouteFederation(args);
             },
         );
-        // Add route transformation
+
         api.transform(
             {
                 resourceQuery: /\?react-router-route/,
             },
             async (args) => {
                 let code = (
-                     await esbuild.transform(args.code, {
+                    await esbuild.transform(args.code, {
                         jsx: 'automatic',
                         format: 'esm',
                         platform: 'neutral',
@@ -576,185 +423,5 @@ topLevelAwait: true,
     },
 });
 
-// Helper functions
-function configRoutesToRouteManifest(
-    appDirectory: string,
-    routes: RouteConfigEntry[],
-    rootId = 'root',
-) {
-    const routeManifest: Record<string, Route> = {};
 
-    function walk(route: RouteConfigEntry, parentId: string) {
-        const id = route.id || createRouteId(route.file);
-        const manifestItem = {
-            id,
-            parentId,
-            file: isAbsolute(route.file)
-                ? relative(appDirectory, route.file)
-                : route.file,
-            path: route.path,
-            index: route.index,
-            caseSensitive: route.caseSensitive,
-        };
 
-        if (Object.prototype.hasOwnProperty.call(routeManifest, id)) {
-            throw new Error(
-                `Unable to define routes with duplicate route id: "${id}"`,
-            );
-        }
-        routeManifest[id] = manifestItem;
-
-        if (route.children) {
-            for (const child of route.children) {
-                walk(child, id);
-            }
-        }
-    }
-
-    for (const route of routes) {
-        walk(route, rootId);
-    }
-
-    return routeManifest;
-}
-
-async function getReactRouterManifestForDev(
-    routes: Record<string, Route>,
-    //@ts-ignore
-    options: PluginOptions,
-    clientStats: Rspack.StatsCompilation | undefined,
-    context: string,
-): Promise<{
-    version: string;
-    url: string;
-    entry: {
-        module: string;
-        imports: string[];
-        css: string[];
-    };
-    routes: Record<string, RouteManifestItem>;
-}> {
-    const result: Record<string, RouteManifestItem> = {};
-
-    for (const [key, route] of Object.entries(routes)) {
-        const assets = clientStats?.assetsByChunkName?.[route.id];
-        const jsAssets = assets?.filter((asset) => asset.endsWith('.js')) || [];
-        const cssAssets = assets?.filter((asset) => asset.endsWith('.css')) || [];
-        // Read and analyze the route file to check for exports
-        const routeFilePath = resolve(context, route.file);
-        let exports = new Set<string>();
-
-        try {
-            const buildResult = await esbuild.build({
-                entryPoints: [routeFilePath],
-                bundle: false,
-                write: false,
-                metafile: true,
-                jsx: 'automatic',
-                format: 'esm',
-                platform: 'neutral',
-                loader: {
-                    '.ts': 'ts',
-                    '.tsx': 'tsx',
-                    '.js': 'js',
-                    '.jsx': 'jsx'
-                },
-            });
-
-            // Get exports from the metafile
-            const entryPoint = Object.values(buildResult.metafile.outputs)[0];
-            if (entryPoint?.exports) {
-                exports = new Set(entryPoint.exports);
-            }
-        } catch (error) {
-            console.error(`Failed to analyze route file ${routeFilePath}:`, error);
-        }
-
-        result[key] = {
-            id: route.id,
-            parentId: route.parentId,
-            path: route.path,
-            index: route.index,
-            caseSensitive: route.caseSensitive,
-            module: combineURLs('/', jsAssets[0] || ''),
-            hasAction: exports.has(SERVER_EXPORTS.action),
-            hasLoader: exports.has(SERVER_EXPORTS.loader),
-            hasClientAction: exports.has(CLIENT_EXPORTS.clientAction),
-            hasClientLoader: exports.has(CLIENT_EXPORTS.clientLoader),
-            hasErrorBoundary: exports.has(CLIENT_EXPORTS.ErrorBoundary),
-            imports: jsAssets.map((asset) => combineURLs('/', asset)),
-            css: cssAssets.map((asset) => combineURLs('/', asset)),
-        };
-    }
-
-    const entryAssets = clientStats?.assetsByChunkName?.['entry.client'];
-    const entryJsAssets =
-        entryAssets?.filter((asset) => asset.endsWith('.js')) || [];
-    const entryCssAssets =
-        entryAssets?.filter((asset) => asset.endsWith('.css')) || [];
-
-    return {
-        version: String(Math.random()),
-        url: '/static/js/virtual/react-router/browser-manifest.js',
-        entry: {
-            module: combineURLs('/', entryJsAssets[0] || ''),
-            imports: entryJsAssets.map((asset) => combineURLs('/', asset)),
-            css: entryCssAssets.map((asset) => combineURLs('/', asset)),
-        },
-        routes: result,
-    };
-}
-
-/**
- * Generates the server build module content
- * @param routes The route manifest
- * @param options Build options
- * @returns The generated module content as a string
- */
-function generateServerBuild(
-    routes: Record<string, Route>,
-    options: {
-        entryServerPath: string;
-        assetsBuildDirectory: string;
-        basename: string;
-        appDirectory: string;
-        ssr: boolean;
-    },
-): string {
-    return `
-    import * as entryServer from ${JSON.stringify(options.entryServerPath)};
-    ${Object.keys(routes)
-        .map((key, index) => {
-            const route = routes[key];
-            return `import * as route${index} from ${JSON.stringify(
-                `${resolve(options.appDirectory, route.file)}?react-router-route`,
-            )};`;
-        })
-        .join('\n')}
-
-    export { default as assets } from "virtual/react-router/server-manifest";
-    export const assetsBuildDirectory = ${JSON.stringify(
-        options.assetsBuildDirectory,
-    )};
-    export const basename = ${JSON.stringify(options.basename)};
-    export const future = ${JSON.stringify({})};
-    export const isSpaMode = ${!options.ssr};
-    export const publicPath = "/";
-    export const entry = { module: entryServer };
-    export const routes = {
-      ${Object.keys(routes)
-        .map((key, index) => {
-            const route = routes[key];
-            return `${JSON.stringify(key)}: {
-            id: ${JSON.stringify(route.id)},
-            parentId: ${JSON.stringify(route.parentId)},
-            path: ${JSON.stringify(route.path)},
-            index: ${JSON.stringify(route.index)},
-            caseSensitive: ${JSON.stringify(route.caseSensitive)},
-            module: route${index}
-          }`;
-        })
-        .join(',\n  ')}
-    };
-  `;
-}

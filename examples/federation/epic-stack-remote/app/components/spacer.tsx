@@ -52,6 +52,7 @@ export function Spacer({
 		'3xl': 'h-40',
 		'4xl': 'h-44',
 	}
-	const className = options[size]
+	const className = options[size];
+	console.log('SPACER');
 	return <div className={className} />
 }

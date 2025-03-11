@@ -95,6 +95,7 @@ export async function createApp(devServer?: any) {
 		// Everything else (like favicon.ico) is cached for an hour. You may want to be
 		// more aggressive with this caching.
 		app.use(express.static('build/client', { maxAge: '1h' }))
+		app.use('/server', express.static('build/server', { maxAge: '1h' }))
 	}
 
 	app.get(['/img/*', '/favicons/*'], ((

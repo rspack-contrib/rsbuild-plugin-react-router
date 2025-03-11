@@ -1,5 +1,14 @@
 export const PLUGIN_NAME = 'rsbuild:react-router';
 
+export const JS_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js', '.mjs'] as const;
+
+export const JS_LOADERS = {
+  '.ts': 'ts',
+  '.tsx': 'tsx',
+  '.js': 'js',
+  '.jsx': 'jsx'
+} as const;
+
 export const SERVER_ONLY_ROUTE_EXPORTS = [
   'loader',
   'action',
