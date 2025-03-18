@@ -12,9 +12,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { type Route } from './+types/$username.ts'
-import * as spc from 'remote/components/spacer';
-console.log('SPCSPCSPC', spc);
-const {Spacer} = spc;
+import {Spacer} from 'remote/components/spacer';
 
 
 export async function loader({ params }: LoaderFunctionArgs) {

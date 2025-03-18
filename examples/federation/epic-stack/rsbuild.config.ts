@@ -15,24 +15,24 @@ export default defineConfig({
 		port: Number(process.env.PORT || 3000),
 	},
 	output: {
-		externals: ['better-sqlite3', 'express','ws'],
+		externals: ['better-sqlite3', 'express', 'ws'],
 	},
 	environments: {
 		web: {
 			source: {
 				define: {
-					"process.env.WEB": 'true'
-				}
+					'process.env.WEB': 'true',
+				},
 			},
 			tools: {
 				rspack: {
 					plugins: [
 						new ModuleFederationPlugin({
-							name: 'remote',
+							name: 'host',
 							runtime: false,
 							remoteType: 'import',
 							remotes: {
-								remote: 'http://localhost:3001/static/js/remote.json',
+								remote: 'http://localhost:3001/static/js/remote.js',
 							},
 							shared: {
 								react: {
@@ -48,27 +48,30 @@ export default defineConfig({
 									singleton: true,
 								},
 							},
-						})
-					]
-				}
+						}),
+					],
+				},
 			},
-			plugins: []
+			plugins: [],
 		},
 		node: {
 			source: {
 				define: {
-					"process.env.WEB": 'false'
-				}
+					'process.env.WEB': 'false',
+				},
 			},
 			tools: {
 				rspack: {
 					plugins: [
 						new ModuleFederationPlugin({
-							name: 'remote',
+							name: 'host',
 							runtime: false,
+							dts: false,
 							remotes: {
-								remote: 'remote@http://localhost:3001/static/static/js/remote.js',
+								remote:
+									'remote@http://localhost:3001/static/static/js/remote.js',
 							},
+							runtimePlugins: ['@module-federation/node/runtimePlugin'],
 							shared: {
 								react: {
 									singleton: true,
@@ -83,20 +86,28 @@ export default defineConfig({
 									singleton: true,
 								},
 							},
-						})
-					]
-				}
+						}),
+					],
+				},
 			},
-			plugins: []
-		}
+			plugins: [],
+		},
 	},
 	plugins: [
-		pluginReactRouter({ customServer: true, serverOutput: 'commonjs', federation: true }),
+		pluginReactRouter({
+			customServer: true,
+			serverOutput: 'commonjs',
+			federation: true,
+		}),
 		pluginReact({
 			fastRefresh: false,
 			swcReactOptions: {
 				refresh: false,
-				development: false
+				development: false,
+			},
+			splitChunks: {
+				react: false,
+				router: false,
 			},
 			reactRefreshOptions: {
 				overlay: false,

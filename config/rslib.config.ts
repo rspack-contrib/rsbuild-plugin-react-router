@@ -40,12 +40,21 @@ export const pluginCleanTscCache: RsbuildPlugin = {
 export const esmConfig: LibConfig = {
   format: 'esm',
   syntax: 'es2021',
+  shims: {
+    esm: {
+      __dirname: true
+    }
+  },
   dts: {
     build: true,
   },
   plugins: [pluginCleanTscCache],
   output: {
     minify: nodeMinifyConfig,
+    externals: {
+      '@babel/traverse': 'commonjs @babel/traverse',
+      '@babel/generator': 'commonjs @babel/generator',
+    }
   },
 };
 

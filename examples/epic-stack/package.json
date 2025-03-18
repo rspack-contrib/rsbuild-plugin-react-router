@@ -41,9 +41,6 @@
     "/server-build"
   ],
   "dependencies": {
-    "@rsbuild/core": "1.2.3",
-    "@rsbuild/plugin-react": "1.1.0",
-    "@rsbuild/plugin-react-router": "workspace:*",
     "@conform-to/react": "1.2.2",
     "@conform-to/zod": "1.2.2",
     "@epic-web/cachified": "5.2.0",
@@ -69,6 +66,9 @@
     "@react-router/node": "7.1.5",
     "@react-router/remix-routes-option-adapter": "7.1.5",
     "@remix-run/server-runtime": "2.15.3",
+    "@rsbuild/core": "1.2.19",
+    "@rsbuild/plugin-react": "1.1.1",
+    "@rsbuild/plugin-react-router": "workspace:*",
     "@sentry/node": "8.54.0",
     "@sentry/profiling-node": "8.54.0",
     "@sentry/react": "8.54.0",

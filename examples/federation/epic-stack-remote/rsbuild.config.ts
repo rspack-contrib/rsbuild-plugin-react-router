@@ -108,6 +108,7 @@ export default defineConfig({
 							library: {
 								type: 'commonjs-module'
 							},
+							dts: false,
 							// getPublicPath: 'console.log(__webpack_require__), return "http://localhost:3001/"',
 							runtimePlugins: [
 								'@module-federation/node/runtimePlugin'
@@ -126,20 +127,20 @@ export default defineConfig({
 								'./components/progress-bar': './app/components/progress-bar',
 
 							},
-							shared: {
-								react: {
-									singleton: true,
-								},
-								'react/jsx-dev-runtime': {
-									singleton: true,
-								},
-								'react/jsx-runtime': {
-									singleton: true,
-								},
-								'react-dom': {
-									singleton: true,
-								},
-							}
+							// shared: {
+							// 	react: {
+							// 		singleton: true,
+							// 	},
+							// 	'react/jsx-dev-runtime': {
+							// 		singleton: true,
+							// 	},
+							// 	'react/jsx-runtime': {
+							// 		singleton: true,
+							// 	},
+							// 	'react-dom': {
+							// 		singleton: true,
+							// 	},
+							// }
 						})
 					]
 				}
