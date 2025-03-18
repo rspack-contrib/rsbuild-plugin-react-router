@@ -6,27 +6,21 @@ import type {RsbuildPlugin, Rspack} from '@rsbuild/core';
 import * as esbuild from 'esbuild';
 import {createJiti} from 'jiti';
 import jsesc from 'jsesc';
-import {isAbsolute, relative, resolve} from 'pathe';
+import {relative, resolve} from 'pathe';
 import {RspackVirtualModulePlugin} from 'rspack-plugin-virtual-module';
 import {generate, parse} from './babel.js';
 import {
     PLUGIN_NAME,
-    SERVER_EXPORTS,
-    CLIENT_EXPORTS,
     SERVER_ONLY_ROUTE_EXPORTS,
-    JS_EXTENSIONS,
-    JS_LOADERS
 } from './constants.js';
 import {createDevServerMiddleware} from './dev-server.js';
 import {
-    combineURLs,
-    createRouteId,
     generateWithProps,
     removeExports,
     transformRoute,
     findEntryFile,
 } from './plugin-utils.js';
-import type {Route, PluginOptions, RouteManifestItem} from './types.js';
+import type {PluginOptions} from './types.js';
 import {generateServerBuild} from './server-utils.js';
 import {getReactRouterManifestForDev, configRoutesToRouteManifest} from './manifest.js';
 import {createModifyBrowserManifestPlugin} from './modify-browser-manifest.js';

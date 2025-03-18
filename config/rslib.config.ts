@@ -16,7 +16,7 @@ export const nodeMinifyConfig: Minify = {
       // preserve variable name and disable minify for easier debugging
       mangle: false,
       minify: false,
-      compress: false,
+      compress: true,
     },
   },
 };
@@ -27,8 +27,8 @@ export const pluginCleanTscCache: RsbuildPlugin = {
   setup(api) {
     api.onBeforeBuild(() => {
       const tsbuildinfo = path.join(
-        api.context.rootPath,
-        'tsconfig.tsbuildinfo',
+          api.context.rootPath,
+          'tsconfig.tsbuildinfo',
       );
       if (fs.existsSync(tsbuildinfo)) {
         fs.rmSync(tsbuildinfo);

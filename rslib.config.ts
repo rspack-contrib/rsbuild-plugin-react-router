@@ -1,9 +1,8 @@
 import {
   cjsConfig,
   commonExternals,
-  dualPackage,
   esmConfig,
-} from '@rsbuild/config/rslib.config.ts';
+} from '@rsbuild/config/rslib.config.js';
 import { defineConfig } from '@rslib/core';
 const config = defineConfig({
   source: {
