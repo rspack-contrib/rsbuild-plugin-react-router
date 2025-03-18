@@ -6,7 +6,6 @@ import type { Compiler } from '@rspack/core'
 
 import 'react-router'
 
-// Define a custom webpack/rspack plugin
 class RuntimePlugin {
 	apply(compiler: Compiler) {
 		const { RuntimeGlobals } = compiler.webpack;
@@ -18,7 +17,6 @@ class RuntimePlugin {
 					if(module.name === "module_chunk_loading") {
 						const interceptor =`
 						console.log('test');
-						// Track the current module URL
 						var getModuleUrl = function() {
 						console.log('Getting module URL', import.meta.url);
 							return import.meta.url;
@@ -48,7 +46,6 @@ export default defineConfig({
 	tools: {
 		rspack: {
 			devtool: false,
-			// plugins: [new RuntimePlugin()]
 		}
 	},
 	environments: {
@@ -66,10 +63,8 @@ export default defineConfig({
 							library: {
 								type: 'module'
 							},
-							// remoteType: 'module',
 							runtime: false,
 							exposes: {
-								// Root components
 								'./components/search-bar': './app/components/search-bar',
 								'./components/user-dropdown': './app/components/user-dropdown',
 								'./components/spacer': './app/components/spacer',
@@ -109,14 +104,11 @@ export default defineConfig({
 								type: 'commonjs-module'
 							},
 							dts: false,
-							// getPublicPath: 'console.log(__webpack_require__), return "http://localhost:3001/"',
 							runtimePlugins: [
 								'@module-federation/node/runtimePlugin'
 							],
-							// remoteType: 'module',
 							runtime: false,
 							exposes: {
-								// Root components
 								'./components/search-bar': './app/components/search-bar',
 								'./components/user-dropdown': './app/components/user-dropdown',
 								'./components/spacer': './app/components/spacer',
@@ -127,20 +119,20 @@ export default defineConfig({
 								'./components/progress-bar': './app/components/progress-bar',
 
 							},
-							// shared: {
-							// 	react: {
-							// 		singleton: true,
-							// 	},
-							// 	'react/jsx-dev-runtime': {
-							// 		singleton: true,
-							// 	},
-							// 	'react/jsx-runtime': {
-							// 		singleton: true,
-							// 	},
-							// 	'react-dom': {
-							// 		singleton: true,
-							// 	},
-							// }
+							shared: {
+								react: {
+									singleton: true,
+								},
+								'react/jsx-dev-runtime': {
+									singleton: true,
+								},
+								'react/jsx-runtime': {
+									singleton: true,
+								},
+								'react-dom': {
+									singleton: true,
+								},
+							}
 						})
 					]
 				}
