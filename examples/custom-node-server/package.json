@@ -14,16 +14,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@react-router/express": "^7.0.2",
-    "@react-router/node": "^7.0.2",
+    "@react-router/express": "^7.3.0",
+    "@react-router/node": "^7.3.0",
     "express": "^4.21.2",
     "isbot": "^5.1.22",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router": "7.0.2"
+    "react-router": "7.3.0"
   },
   "devDependencies": {
-    "@react-router/dev": "^7.0.2",
+    "@react-router/dev": "^7.3.0",
     "@rsbuild/core": "^1.2.19",
     "@rsbuild/plugin-react": "^1.1.1",
     "@rsbuild/plugin-react-router": "workspace:*",

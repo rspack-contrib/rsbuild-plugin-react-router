@@ -47,7 +47,7 @@
     "@babel/traverse": "^7.26.3",
     "@babel/types": "^7.26.3",
     "@mjackson/node-fetch-server": "^0.3.0",
-    "@react-router/node": "7.0.2",
+    "@react-router/node": "^7.3.0",
     "@rspack/plugin-react-refresh": "^1.0.1",
     "babel-dead-code-elimination": "^1.0.8",
     "esbuild": "^0.24.2",
@@ -61,7 +61,7 @@
     "rspack-plugin-virtual-module": "^0.1.13"
   },
   "devDependencies": {
-    "@react-router/dev": "^7.1.3",
+    "@react-router/dev": "^7.3.0",
     "@react-router/node": "^7.1.3",
     "@rsbuild/config": "workspace:*",
     "@rsbuild/core": "^1.2.19",
@@ -78,8 +78,8 @@
     "jiti": "^2.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router": "7.1.3",
-    "react-router-dom": "^7.1.3",
+    "react-router": "7.3.0",
+    "react-router-dom": "^7.3.0",
     "typescript": "^5.7.2",
     "vitest": "^3.0.5"
   },
@@ -96,16 +96,16 @@
     "overrides": {
       "react": "^19.0.0",
       "react-dom": "^19.0.0",
-      "react-router": "7.1.3",
-      "react-router-dom": "^7.1.3",
-      "@react-router/node": "^7.1.3",
-      "@react-router/dev": "^7.1.3",
+      "react-router": "7.3.0",
+      "react-router-dom": "^7.3.0",
+      "@react-router/node": "^7.3.0",
+      "@react-router/dev": "^7.3.0",
       "@types/express": "^5.0.0",
-      "@rspack/core": "../rspack/packages/rspack",
-      "@rspack/cli": "../rspack/packages/rspack-cli",
-      "@rspack/binding": "../rspack/crates/node_binding",
-      "@rspack/tracing": "../rspack/packages/rspack-tracing",
-      "@rspack/dev-server": "../rspack/packages/rspack-dev-server"
+      "@rspack/core": "../../RustRoverProjects/rspack/packages/rspack",
+      "@rspack/cli": "../../RustRoverProjects/rspack/packages/rspack-cli",
+      "@rspack/binding": "../../RustRoverProjects/rspack/crates/node_binding",
+      "@rspack/tracing": "../../RustRoverProjects/rspack/packages/rspack-tracing",
+      "@rspack/dev-server": "../../RustRoverProjects/rspack/packages/rspack-dev-server"
     }
   }
 }

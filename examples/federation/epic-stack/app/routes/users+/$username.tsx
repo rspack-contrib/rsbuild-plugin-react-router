@@ -5,6 +5,7 @@ import {
 	Link,
 	useLoaderData,
 } from 'react-router'
+import {Spacer} from 'remote/components/spacer';
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
@@ -12,7 +13,6 @@ import { prisma } from '#app/utils/db.server.ts'
 import { getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { type Route } from './+types/$username.ts'
-import {Spacer} from 'remote/components/spacer';
 
 
 export async function loader({ params }: LoaderFunctionArgs) {

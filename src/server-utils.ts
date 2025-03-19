@@ -1,5 +1,6 @@
-import {isAbsolute, relative, resolve} from 'pathe';
+import {resolve} from 'pathe';
 import type { Route } from "./types.js";
+
 
 /**
  * Generates the server build template string with async dynamic imports for federation mode
@@ -76,7 +77,9 @@ function generateAsyncTemplate(
     export const basename = ${JSON.stringify(options.basename)};
     export const future = ${JSON.stringify({})};
     export const isSpaMode = ${!options.ssr};
+    export const ssr = ${options.ssr};
     export const publicPath = "/";
+    export const prerender = [];
     export const entry = { module: entryServer };
     export const routes = {
       ${Object.keys(routes)
@@ -128,6 +131,8 @@ function generateStaticTemplate(
     export const basename = ${JSON.stringify(options.basename)};
     export const future = ${JSON.stringify({})};
     export const isSpaMode = ${!options.ssr};
+    export const ssr = ${options.ssr};
+    export const prerender = [];
     export const publicPath = "/";
     export const entry = { module: entryServer };
     export const routes = {

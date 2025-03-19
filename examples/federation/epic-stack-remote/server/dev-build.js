@@ -13,7 +13,7 @@ async function startServer() {
     throw new Error('Node environment not found in dev server')
   }
 
-  const bundle = await devServer.environments.node.loadBundle('app');
+  const bundle = await devServer.environments.node.loadBundle('app')
   const { createApp } = bundle
   const app = await createApp(devServer)
 

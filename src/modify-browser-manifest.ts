@@ -1,6 +1,5 @@
 import type { Route, PluginOptions } from './types.js';
 import type { Rspack } from '@rsbuild/core';
-import jsesc from 'jsesc';
 import { getReactRouterManifestForDev } from './manifest.js';
 
 /**
@@ -34,7 +33,7 @@ export function createModifyBrowserManifestPlugin(
               .toString();
             const newSource = originalSource.replace(
               /["'`]PLACEHOLDER["'`]/,
-              jsesc(manifest, { es6: true }),
+              JSON.stringify(manifest),
             );
             compilation.assets[manifestPath] = {
               source: () => newSource,
@@ -67,4 +66,4 @@ export function createModifyBrowserManifestPlugin(
       );
     },
   };
-} 
+}

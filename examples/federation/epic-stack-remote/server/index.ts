@@ -8,7 +8,7 @@ import compression from 'compression'
 import express, { type RequestHandler } from 'express'
 import rateLimit from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
-// import helmet from 'helmet'
+import helmet from 'helmet'
 import morgan from 'morgan'
 import { type ServerBuild } from 'react-router'
 
@@ -95,6 +95,7 @@ export async function createApp(devServer?: any) {
 		// Everything else (like favicon.ico) is cached for an hour. You may want to be
 		// more aggressive with this caching.
 		app.use(express.static('build/client', { maxAge: '1h' }))
+		app.use('/server', express.static('build/server', { maxAge: '1h' }))
 	}
 
 	app.get(['/img/*', '/favicons/*'], ((
@@ -128,38 +129,38 @@ export async function createApp(devServer?: any) {
 		next()
 	})
 
-	// app.use(
-	// 	helmet({
-	// 		xPoweredBy: false,
-	// 		referrerPolicy: { policy: 'same-origin' },
-	// 		crossOriginEmbedderPolicy: false,
-	// 		contentSecurityPolicy: {
-	// 			// NOTE: Remove reportOnly when you're ready to enforce this CSP
-	// 			reportOnly: true,
-	// 			directives: {
-	// 				'connect-src': [
-	// 					MODE === 'development' ? 'ws:' : null,
-	// 					process.env.SENTRY_DSN ? '*.sentry.io' : null,
-	// 					"'self'",
-	// 				].filter(Boolean),
-	// 				'font-src': ["'self'"],
-	// 				'frame-src': ["'self'"],
-	// 				'img-src': ["'self'", 'data:'],
-	// 				'script-src': [
-	// 					"'strict-dynamic'",
-	// 					"'self'",
-	// 					// @ts-expect-error
-	// 					(_, res) => `'nonce-${res.locals.cspNonce}'`,
-	// 				],
-	// 				'script-src-attr': [
-	// 					// @ts-expect-error
-	// 					(_, res) => `'nonce-${res.locals.cspNonce}'`,
-	// 				],
-	// 				'upgrade-insecure-requests': null,
-	// 			},
-	// 		},
-	// 	}),
-	// )
+	app.use(
+		helmet({
+			xPoweredBy: false,
+			referrerPolicy: { policy: 'same-origin' },
+			crossOriginEmbedderPolicy: false,
+			contentSecurityPolicy: {
+				// NOTE: Remove reportOnly when you're ready to enforce this CSP
+				reportOnly: true,
+				directives: {
+					'connect-src': [
+						MODE === 'development' ? 'ws:' : null,
+						process.env.SENTRY_DSN ? '*.sentry.io' : null,
+						"'self'",
+					].filter(Boolean),
+					'font-src': ["'self'"],
+					'frame-src': ["'self'"],
+					'img-src': ["'self'", 'data:'],
+					'script-src': [
+						"'strict-dynamic'",
+						"'self'",
+						// @ts-expect-error
+						(_, res) => `'nonce-${res.locals.cspNonce}'`,
+					],
+					'script-src-attr': [
+						// @ts-expect-error
+						(_, res) => `'nonce-${res.locals.cspNonce}'`,
+					],
+					'upgrade-insecure-requests': null,
+				},
+			},
+		}),
+	)
 
 	// When running tests or running in development, we want to effectively disable
 	// rate limiting because playwright tests are very fast and we don't want to
