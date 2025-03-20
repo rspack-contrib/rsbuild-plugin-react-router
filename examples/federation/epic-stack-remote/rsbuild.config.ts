@@ -49,7 +49,7 @@ export default defineConfig({
 		}
 	},
 	resolve: {
-		dedupe: ['react', 'react-dom'],
+		dedupe: ['react', 'react-dom', 'react-dom/client'],
 	},
 	environments: {
 		web: {
