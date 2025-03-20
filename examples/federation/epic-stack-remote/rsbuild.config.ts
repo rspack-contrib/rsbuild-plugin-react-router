@@ -48,6 +48,9 @@ export default defineConfig({
 			devtool: false,
 		}
 	},
+	resolve: {
+		dedupe: ['react', 'react-dom'],
+	},
 	environments: {
 		web: {
 			source: {
@@ -75,16 +78,31 @@ export default defineConfig({
 								'./components/progress-bar': './app/components/progress-bar',
 							},
 							shared: {
+								'react-router': {
+									singleton: true,
+								},
+								'react-router/': {
+									singleton: true,
+								},
+								'react-router-dom': {
+									singleton: true,
+								},
 								react: {
 									singleton: true,
 								},
-								'react/jsx-dev-runtime': {
+								'react/': {
 									singleton: true,
 								},
-								'react/jsx-runtime': {
-									singleton: true,
-								},
+								// 'react/jsx-dev-runtime': {
+								// 	singleton: true,
+								// },
+								// 'react/jsx-runtime': {
+								// 	singleton: true,
+								// },
 								'react-dom': {
+									singleton: true,
+								},
+								'react-dom/client': {
 									singleton: true,
 								},
 							}
@@ -120,7 +138,16 @@ export default defineConfig({
 
 							},
 							shared: {
+								"react-router": {
+									singleton: true
+								},
+								'react-router-dom': {
+									singleton: true,
+								},
 								react: {
+									singleton: true,
+								},
+								'react/': {
 									singleton: true,
 								},
 								'react/jsx-dev-runtime': {
@@ -130,6 +157,9 @@ export default defineConfig({
 									singleton: true,
 								},
 								'react-dom': {
+									singleton: true,
+								},
+								'react-dom/': {
 									singleton: true,
 								},
 							}
