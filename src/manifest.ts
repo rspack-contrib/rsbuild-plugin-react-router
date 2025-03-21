@@ -1,14 +1,10 @@
 import {isAbsolute, relative, resolve} from 'pathe';
 import type {Route, PluginOptions, RouteManifestItem} from './types.js';
 import type {RouteConfigEntry} from '@react-router/dev/routes';
-import type {Config} from '@react-router/dev/config';
-import type {RsbuildPlugin, Rspack} from '@rsbuild/core';
+import type {Rspack} from '@rsbuild/core';
 import {
     combineURLs,
     createRouteId,
-    generateWithProps,
-    removeExports,
-    transformRoute,
 } from './plugin-utils.js';
 import {SERVER_EXPORTS, CLIENT_EXPORTS, JS_LOADERS} from './constants.js';
 import * as esbuild from 'esbuild';
