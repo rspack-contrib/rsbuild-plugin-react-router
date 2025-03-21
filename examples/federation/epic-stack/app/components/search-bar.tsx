@@ -1,5 +1,6 @@
 import { useId } from 'react'
-import { Form, useSearchParams, useSubmit } from 'react-router'
+import { Form as ReactRouterForm, useSearchParams, useSubmit } from 'react-router'
+import { Form } from 'remote/components/forms'
 import { useDebounce, useIsPending } from '#app/utils/misc.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'

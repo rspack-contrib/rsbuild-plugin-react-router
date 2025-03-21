@@ -1,5 +1,5 @@
 import { invariantResponse } from '@epic-web/invariant'
-import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
+import { GeneralErrorBoundary } from 'remote/components/error-boundary'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { type Route } from './+types/notes.$noteId_.edit.ts'

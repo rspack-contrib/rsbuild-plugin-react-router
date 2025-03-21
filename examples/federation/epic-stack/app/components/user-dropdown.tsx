@@ -1,5 +1,6 @@
 import { useRef } from 'react'
-import { Link, Form } from 'react-router'
+import { Link, Form as ReactRouterForm } from 'react-router'
+import { Form } from 'remote/components/forms'
 import { getUserImgSrc } from '#app/utils/misc.tsx'
 import { useUser } from '#app/utils/user.ts'
 import { Button } from './ui/button'

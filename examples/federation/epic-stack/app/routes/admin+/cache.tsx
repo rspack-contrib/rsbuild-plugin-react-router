@@ -8,10 +8,10 @@ import {
 	useSearchParams,
 	useSubmit,
 } from 'react-router'
-import { GeneralErrorBoundary } from '#app/components/error-boundary'
-import { Field } from '#app/components/forms.tsx'
-import { Spacer } from '#app/components/spacer.tsx'
-import { Button } from '#app/components/ui/button.tsx'
+import { GeneralErrorBoundary } from 'remote/components/error-boundary'
+import { Field } from 'remote/components/forms'
+import { Spacer } from 'remote/components/spacer'
+import { Button } from 'remote/components/ui/button'
 import {
 	cache,
 	getAllCacheKeys,

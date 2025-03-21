@@ -13,14 +13,14 @@ import { HoneypotProvider } from 'remix-utils/honeypot/react'
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
-import { GeneralErrorBoundary } from './components/error-boundary.tsx'
-import { EpicProgress } from './components/progress-bar.tsx'
+import { GeneralErrorBoundary } from 'remote/components/error-boundary'
+import { EpicProgress } from 'remote/components/progress-bar'
 import { SearchBar } from 'remote/components/search-bar'
-import { useToast } from './components/toaster.tsx'
+import { useToast } from 'remote/components/toaster'
 import { Button } from './components/ui/button.tsx'
 import { href as iconsHref } from './components/ui/icon.tsx'
 import { EpicToaster } from './components/ui/sonner.tsx'
-import { UserDropdown } from './components/user-dropdown.tsx'
+import { UserDropdown } from 'remote/components/user-dropdown'
 import {
 	ThemeSwitch,
 	useOptionalTheme,

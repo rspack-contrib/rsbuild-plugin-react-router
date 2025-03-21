@@ -74,6 +74,17 @@ export default defineConfig({
 								'./components/floating-toolbar': './app/components/floating-toolbar',
 								'./components/forms': './app/components/forms',
 								'./components/progress-bar': './app/components/progress-bar',
+								'./components/ui/tooltip': './app/components/ui/tooltip',
+								'./components/ui/status-button': './app/components/ui/status-button',
+								'./components/ui/textarea': './app/components/ui/textarea',
+								'./components/ui/sonner': './app/components/ui/sonner',
+								'./components/ui/label': './app/components/ui/label',
+								'./components/ui/input': './app/components/ui/input',
+								'./components/ui/input-otp': './app/components/ui/input-otp',
+								'./components/ui/dropdown-menu': './app/components/ui/dropdown-menu',
+								'./components/ui/icon': './app/components/ui/icon',
+								'./components/ui/button': './app/components/ui/button',
+								'./components/ui/checkbox': './app/components/ui/checkbox',
 							},
 							shared: {
 								'react-router': {
@@ -124,7 +135,17 @@ export default defineConfig({
 								'./components/floating-toolbar': './app/components/floating-toolbar',
 								'./components/forms': './app/components/forms',
 								'./components/progress-bar': './app/components/progress-bar',
-
+								'./components/ui/tooltip': './app/components/ui/tooltip',
+								'./components/ui/status-button': './app/components/ui/status-button',
+								'./components/ui/textarea': './app/components/ui/textarea',
+								'./components/ui/sonner': './app/components/ui/sonner',
+								'./components/ui/label': './app/components/ui/label',
+								'./components/ui/input': './app/components/ui/input',
+								'./components/ui/input-otp': './app/components/ui/input-otp',
+								'./components/ui/dropdown-menu': './app/components/ui/dropdown-menu',
+								'./components/ui/icon': './app/components/ui/icon',
+								'./components/ui/button': './app/components/ui/button',
+								'./components/ui/checkbox': './app/components/ui/checkbox',
 							},
 							shared: {
 								'react-router': {

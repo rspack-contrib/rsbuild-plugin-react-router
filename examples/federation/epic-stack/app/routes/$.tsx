@@ -6,8 +6,8 @@
 // message for them than the Remix and/or browser default.
 
 import { Link, useLocation } from 'react-router'
-import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
+import { GeneralErrorBoundary } from 'remote/components/error-boundary'
+import { Icon } from 'remote/components/ui/icon'
 
 export function loader() {
 	throw new Response('Not found', { status: 404 })

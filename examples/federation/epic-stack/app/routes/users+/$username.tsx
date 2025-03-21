@@ -6,9 +6,9 @@ import {
 	useLoaderData,
 } from 'react-router'
 import {Spacer} from 'remote/components/spacer';
-import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
-import { Button } from '#app/components/ui/button.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
+import { GeneralErrorBoundary } from 'remote/components/error-boundary'
+import { Button } from 'remote/components/ui/button'
+import { Icon } from 'remote/components/ui/icon'
 import { prisma } from '#app/utils/db.server.ts'
 import { getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'

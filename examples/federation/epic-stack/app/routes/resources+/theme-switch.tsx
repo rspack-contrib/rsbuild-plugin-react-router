@@ -4,7 +4,7 @@ import { invariantResponse } from '@epic-web/invariant'
 import { data, redirect, useFetcher, useFetchers } from 'react-router'
 import { ServerOnly } from 'remix-utils/server-only'
 import { z } from 'zod'
-import { Icon } from '#app/components/ui/icon.tsx'
+import { Icon } from 'remote/components/ui/icon'
 import { useHints, useOptionalHints } from '#app/utils/client-hints.tsx'
 import {
 	useOptionalRequestInfo,

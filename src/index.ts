@@ -377,14 +377,20 @@ export const pluginReactRouter = (
                 resourceQuery: /\?react-router-route/,
             },
             async (args) => {
-                let code = (
-                    await esbuild.transform(args.code, {
-                        jsx: 'automatic',
-                        format: 'esm',
-                        platform: 'neutral',
-                        loader: args.resourcePath.endsWith('x') ? 'tsx' : 'ts',
-                    })
-                ).code
+                let code;
+                try {
+                    code = (
+                        await esbuild.transform(args.code, {
+                            jsx: 'automatic',
+                            format: 'esm',
+                            platform: 'neutral',
+                            loader: args.resourcePath.endsWith('x') ? 'tsx' : 'ts',
+                        })
+                    ).code
+                } catch (error) {
+                    console.error(args.resourcePath);
+                    throw error;
+                }
 
 
                 const defaultExportMatch = code.match(

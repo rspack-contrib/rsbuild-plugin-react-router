@@ -1,7 +1,8 @@
-import { Form } from 'react-router'
+import { Form as ReactRouterForm } from 'react-router'
+import { Form } from 'remote/components/forms'
 import { z } from 'zod'
-import { Icon } from '#app/components/ui/icon.tsx'
-import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { Icon } from 'remote/components/ui/icon'
+import { StatusButton } from 'remote/components/ui/status-button'
 import { useIsPending } from './misc.tsx'
 
 export const GITHUB_PROVIDER_NAME = 'github'
