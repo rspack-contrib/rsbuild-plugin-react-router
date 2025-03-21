@@ -30,6 +30,7 @@ export default defineConfig({
 						new ModuleFederationPlugin({
 							name: 'host',
 							runtime: false,
+							shareStrategy: "loaded-first",
 							remoteType: 'import',
 							remotes: {
 								remote: 'http://localhost:3001/static/js/remote.js',
@@ -41,25 +42,16 @@ export default defineConfig({
 								'react-router/': {
 									singleton: true,
 								},
-								'react-router-dom': {
-									singleton: true,
-								},
 								react: {
 									singleton: true,
 								},
 								'react/': {
 									singleton: true,
 								},
-								// 'react/jsx-dev-runtime': {
-								// 	singleton: true,
-								// },
-								// 'react/jsx-runtime': {
-								// 	singleton: true,
-								// },
 								'react-dom': {
 									singleton: true,
 								},
-								'react-dom/client': {
+								'react-dom/': {
 									singleton: true,
 								},
 							},
@@ -88,22 +80,16 @@ export default defineConfig({
 							},
 							runtimePlugins: ['@module-federation/node/runtimePlugin'],
 							shared: {
-								"react-router": {
+								'react-router': {
 									singleton: true,
 								},
-								'react-router-dom': {
+								'react-router/': {
 									singleton: true,
 								},
 								react: {
 									singleton: true,
 								},
 								'react/': {
-									singleton: true,
-								},
-								'react/jsx-dev-runtime': {
-									singleton: true,
-								},
-								'react/jsx-runtime': {
 									singleton: true,
 								},
 								'react-dom': {

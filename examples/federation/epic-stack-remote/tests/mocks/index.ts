@@ -2,8 +2,9 @@ import closeWithGrace from 'close-with-grace'
 import { setupServer } from 'msw/node'
 import { handlers as githubHandlers } from './github.ts'
 import { handlers as resendHandlers } from './resend.ts'
+import { handlers as federationHandlers } from './federation.ts'
 
-export const server = setupServer(...resendHandlers, ...githubHandlers)
+export const server = setupServer(...resendHandlers, ...githubHandlers, ...federationHandlers)
 
 server.listen({
 	onUnhandledRequest(request, print) {
@@ -13,6 +14,9 @@ server.listen({
 		//       like requested at https://github.com/mswjs/msw/issues/1804
 		if (request.url.includes('.sentry.io')) {
 			return
+		}
+		if(request.url.endsWith('.js') || request.url.endsWith('.zip')) {
+			return;
 		}
 		// Print the regular MSW unhandled request warning otherwise.
 		print.warning()

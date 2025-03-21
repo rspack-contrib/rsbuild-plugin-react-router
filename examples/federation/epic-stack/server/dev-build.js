@@ -14,6 +14,7 @@ async function startServer() {
   }
 
   const bundle = await devServer.environments.node.loadBundle('app')
+  await new Promise(resolve => setTimeout(resolve, 5000))
   const { createApp } = bundle
   const app = await createApp(devServer)
 

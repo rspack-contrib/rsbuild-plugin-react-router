@@ -63,6 +63,7 @@ export default defineConfig({
 							library: {
 								type: 'module'
 							},
+							shareStrategy: "loaded-first",
 							runtime: false,
 							exposes: {
 								'./components/search-bar': './app/components/search-bar',
@@ -81,25 +82,16 @@ export default defineConfig({
 								'react-router/': {
 									singleton: true,
 								},
-								'react-router-dom': {
-									singleton: true,
-								},
 								react: {
 									singleton: true,
 								},
 								'react/': {
 									singleton: true,
 								},
-								// 'react/jsx-dev-runtime': {
-								// 	singleton: true,
-								// },
-								// 'react/jsx-runtime': {
-								// 	singleton: true,
-								// },
 								'react-dom': {
 									singleton: true,
 								},
-								'react-dom/client': {
+								'react-dom/': {
 									singleton: true,
 								},
 							}
@@ -135,22 +127,16 @@ export default defineConfig({
 
 							},
 							shared: {
-								"react-router": {
-									singleton: true
+								'react-router': {
+									singleton: true,
 								},
-								'react-router-dom': {
+								'react-router/': {
 									singleton: true,
 								},
 								react: {
 									singleton: true,
 								},
 								'react/': {
-									singleton: true,
-								},
-								'react/jsx-dev-runtime': {
-									singleton: true,
-								},
-								'react/jsx-runtime': {
 									singleton: true,
 								},
 								'react-dom': {
