@@ -48,9 +48,6 @@ export default defineConfig({
 			devtool: false,
 		}
 	},
-	resolve: {
-		dedupe: ['react', 'react-dom', 'react-dom/client'],
-	},
 	environments: {
 		web: {
 			source: {

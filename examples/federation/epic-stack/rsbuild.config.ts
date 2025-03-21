@@ -17,9 +17,6 @@ export default defineConfig({
 	output: {
 		externals: ['better-sqlite3', 'express', 'ws'],
 	},
-	resolve: {
-		dedupe: ['react', 'react-dom', 'react-dom/client'],
-	},
 	environments: {
 		web: {
 			source: {
