@@ -39,7 +39,9 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:core": "vitest run -c ./vitest.config.ts",
-    "test:core:watch": "vitest watch -c ./vitest.config.ts"
+    "test:core:watch": "vitest watch -c ./vitest.config.ts",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx}\""
   },
   "dependencies": {
     "@babel/core": "^7.26.3",
@@ -76,6 +78,7 @@
     "@types/react-dom": "^19.0.1",
     "jiti": "^2.4.1",
     "playwright": "^1.50.1",
+    "prettier": "3.4.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router": "^7.4.0",

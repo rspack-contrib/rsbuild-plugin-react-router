@@ -10,7 +10,7 @@ import { NAMED_COMPONENT_EXPORTS, JS_EXTENSIONS } from './constants.js';
 
 export function validateDestructuredExports(
   id: Babel.ArrayPattern | Babel.ObjectPattern,
-  exportsToRemove: string[],
+  exportsToRemove: string[]
 ): void {
   if (id.type === 'ArrayPattern') {
     for (const element of id.elements) {
@@ -93,7 +93,7 @@ export function toFunctionExpression(decl: Babel.FunctionDeclaration): any {
     decl.params,
     decl.body,
     decl.generator,
-    decl.async,
+    decl.async
   );
 }
 
@@ -168,7 +168,7 @@ export function generateWithProps() {
 
 export const removeExports = (
   ast: ParseResult<Babel.File>,
-  exportsToRemove: string[],
+  exportsToRemove: string[]
 ): void => {
   const previouslyReferencedIdentifiers = findReferencedIdentifiers(ast);
   let exportsFiltered = false;
@@ -186,7 +186,7 @@ export const removeExports = (
               specifier:
                 | Babel.ExportSpecifier
                 | Babel.ExportDefaultSpecifier
-                | Babel.ExportNamespaceSpecifier,
+                | Babel.ExportNamespaceSpecifier
             ) => {
               // Filter out individual specifiers
               if (
@@ -199,7 +199,7 @@ export const removeExports = (
                 }
               }
               return true;
-            },
+            }
           );
           // Remove the entire export statement if all specifiers were removed
           if (path.node.specifiers.length === 0) {
@@ -237,7 +237,7 @@ export const removeExports = (
               }
 
               return true;
-            },
+            }
           );
           // Remove the entire export statement if all variables were removed
           if (declaration.declarations.length === 0) {
@@ -336,9 +336,9 @@ export const transformRoute = (ast: ParseResult<Babel.File>): void => {
             t.variableDeclaration('const', [
               t.variableDeclarator(
                 t.identifier(name),
-                t.callExpression(uid, [toFunctionExpression(decl.node)]),
+                t.callExpression(uid, [toFunctionExpression(decl.node)])
               ),
-            ]) as any,
+            ]) as any
           );
         }
       }
@@ -349,17 +349,16 @@ export const transformRoute = (ast: ParseResult<Babel.File>): void => {
     ast.program.body.unshift(
       t.importDeclaration(
         hocs.map(([name, identifier]) =>
-          t.importSpecifier(identifier, t.identifier(name)),
+          t.importSpecifier(identifier, t.identifier(name))
         ),
-        t.stringLiteral('virtual/react-router/with-props'),
-      ) as any,
+        t.stringLiteral('virtual/react-router/with-props')
+      ) as any
     );
   }
 };
 
-
 function isNamedComponentExport(
-  name: string,
+  name: string
 ): name is (typeof NAMED_COMPONENT_EXPORTS)[number] {
   return (NAMED_COMPONENT_EXPORTS as readonly string[]).includes(name);
 }
