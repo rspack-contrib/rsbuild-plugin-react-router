@@ -33,7 +33,10 @@ export default defineConfig({
 							shareStrategy: "loaded-first",
 							remoteType: 'import',
 							remotes: {
-								remote: 'http://localhost:3001/static/js/remote.js',
+								remote: 'http://localhost:3001/static/mf-manifest.json',
+							},
+							manifest: {
+								filePath: 'static'
 							},
 							shared: {
 								'react-router': {
@@ -73,10 +76,12 @@ export default defineConfig({
 						new ModuleFederationPlugin({
 							name: 'host',
 							runtime: false,
-							dts: false,
+							manifest: {
+								filePath: 'static'
+							},
 							remotes: {
 								remote:
-									'remote@http://localhost:3001/static/static/js/remote.js',
+									'remote@http://localhost:3001/static/static/mf-manifest.json',
 							},
 							runtimePlugins: ['@module-federation/node/runtimePlugin'],
 							shared: {

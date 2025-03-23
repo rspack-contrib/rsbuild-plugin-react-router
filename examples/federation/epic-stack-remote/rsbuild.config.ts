@@ -65,6 +65,9 @@ export default defineConfig({
 							},
 							shareStrategy: "loaded-first",
 							runtime: false,
+							manifest: {
+								filePath: 'static'
+							},
 							exposes: {
 								'./components/search-bar': './app/components/search-bar',
 								'./components/user-dropdown': './app/components/user-dropdown',
@@ -121,7 +124,9 @@ export default defineConfig({
 							library: {
 								type: 'commonjs-module'
 							},
-							dts: false,
+							manifest: {
+								filePath: 'static'
+							},
 							runtimePlugins: [
 								'@module-federation/node/runtimePlugin'
 							],
