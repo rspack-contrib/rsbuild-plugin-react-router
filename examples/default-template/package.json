@@ -7,7 +7,7 @@
     "dev": "rsbuild dev",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
-    "test:e2e": "playwright test",
+    "test:e2e": "pnpm run dev & sleep 5 && playwright test",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:ui": "playwright test --ui"
   },
