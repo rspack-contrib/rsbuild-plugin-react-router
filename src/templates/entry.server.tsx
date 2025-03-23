@@ -16,7 +16,7 @@ export default function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
-  routerContext: EntryContext,
+  routerContext: EntryContext
   // loadContext: AppLoadContext
 ): Promise<Response> {
   return new Promise<Response>((resolve, reject) => {
@@ -32,10 +32,7 @@ export default function handleRequest(
         : 'onShellReady';
 
     const { pipe, abort } = renderToPipeableStream(
-      <ServerRouter
-        context={routerContext}
-        url={request.url}
-      />,
+      <ServerRouter context={routerContext} url={request.url} />,
       {
         [readyOption]() {
           shellRendered = true;
@@ -48,7 +45,7 @@ export default function handleRequest(
             new Response(stream, {
               headers: responseHeaders,
               status: statusCode,
-            }),
+            })
           );
 
           pipe(body);
@@ -62,7 +59,7 @@ export default function handleRequest(
             console.error(error);
           }
         },
-      },
+      }
     );
 
     setTimeout(abort, ABORT_DELAY);

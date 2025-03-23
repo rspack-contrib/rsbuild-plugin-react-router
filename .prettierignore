@@ -1,0 +1,20 @@
+# Build artifacts
+dist/
+node_modules/
+.git/
+.vscode/
+.idea/
+
+# Examples directory (not our focus)
+examples/
+
+# Test files (only focusing on src)
+tests/
+
+# Coverage reports
+coverage/
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock 

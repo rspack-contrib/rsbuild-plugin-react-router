@@ -23,17 +23,18 @@ export function createModifyBrowserManifestPlugin(
             routes,
             pluginOptions,
             compilation.getStats().toJson(),
-            appDirectory,
+            appDirectory
           );
 
-          const manifestPath = 'static/js/virtual/react-router/browser-manifest.js';
+          const manifestPath =
+            'static/js/virtual/react-router/browser-manifest.js';
           if (compilation.assets[manifestPath]) {
             const originalSource = compilation.assets[manifestPath]
               .source()
               .toString();
             const newSource = originalSource.replace(
               /["'`]PLACEHOLDER["'`]/,
-              JSON.stringify(manifest),
+              JSON.stringify(manifest)
             );
             compilation.assets[manifestPath] = {
               source: () => newSource,
@@ -57,12 +58,12 @@ export function createModifyBrowserManifestPlugin(
                   sourcesContent: [newSource],
                 },
               }),
-              updateHash: (hash) => hash.update(newSource),
+              updateHash: hash => hash.update(newSource),
               buffer: () => Buffer.from(newSource),
             };
           }
           callback();
-        },
+        }
       );
     },
   };

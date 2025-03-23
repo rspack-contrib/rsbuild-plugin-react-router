@@ -8,11 +8,13 @@ export type DevServerMiddleware = (
 ) => Promise<void>;
 
 export const createDevServerMiddleware = (server: any): DevServerMiddleware => {
-  return async (req: IncomingMessage, res: ServerResponse, next: (err?: any) => void): Promise<void> => {
+  return async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    next: (err?: any) => void
+  ): Promise<void> => {
     try {
-      const bundle = (await server.environments.node.loadBundle(
-        'app',
-      ));
+      const bundle = await server.environments.node.loadBundle('app');
 
       if (!bundle || !bundle.routes) {
         throw new Error('Server bundle not found or invalid');

@@ -6,7 +6,7 @@ export const JS_LOADERS = {
   '.ts': 'ts',
   '.tsx': 'tsx',
   '.js': 'js',
-  '.jsx': 'jsx'
+  '.jsx': 'jsx',
 } as const;
 
 export const SERVER_ONLY_ROUTE_EXPORTS = [
