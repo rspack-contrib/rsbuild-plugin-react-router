@@ -30,7 +30,8 @@ function generateAsyncTemplate(
     const createAsyncHandler = (exportName) => {
       return async (...args) => {
         const module = await ensureEntryServerLoaded();
-        return module[exportName](...args);
+        const handler = module[exportName];
+        return typeof handler === 'function' ? handler(...args) : handler;
       };
     };
 
@@ -40,20 +41,24 @@ function generateAsyncTemplate(
         if (!entryServerModule) {
           throw new Error('Entry server module not loaded yet. Call an async method first or await ensureEntryServerLoaded()');
         }
-        return entryServerModule[exportName](...args);
+        
+        const handler = entryServerModule[exportName];
+        return typeof handler === 'function' ? handler(...args) : handler;
       };
     };
 
     // Create a proxy for the entryServer exports
     const entryServer = new Proxy({}, {
       get: (target, prop) => {
-        // Handle async exports
+        if (entryServerModule) {
+          return entryServerModule[prop];
+        }
+        
         if (prop === 'handleDataRequest' || prop === 'handleRequest' || prop === 'default') {
           return createAsyncHandler(prop);
         }
         
-        // For any other property
-        return entryServerModule?.[prop];
+        return undefined;
       }
     });
 
