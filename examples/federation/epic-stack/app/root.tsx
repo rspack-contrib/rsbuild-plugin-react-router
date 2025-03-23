@@ -17,9 +17,9 @@ import { GeneralErrorBoundary } from 'remote/components/error-boundary'
 import { EpicProgress } from 'remote/components/progress-bar'
 import { SearchBar } from 'remote/components/search-bar'
 import { useToast } from 'remote/components/toaster'
-import { Button } from './components/ui/button.tsx'
-import { href as iconsHref } from './components/ui/icon.tsx'
-import { EpicToaster } from './components/ui/sonner.tsx'
+import { Button } from 'remote/components/ui/button'
+import { href as iconsHref } from 'remote/components/ui/icon'
+import { EpicToaster } from 'remote/components/ui/sonner'
 import { UserDropdown } from 'remote/components/user-dropdown'
 import {
 	ThemeSwitch,
