@@ -174,7 +174,7 @@ export const pluginReactRouter = (
         basename,
         appDirectory,
         ssr,
-        federation: true,
+        federation: options.federation,
       }),
       'virtual/react-router/with-props': generateWithProps(),
     });
