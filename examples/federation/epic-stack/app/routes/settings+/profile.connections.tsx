@@ -9,7 +9,7 @@ import {
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
-} from 'remote/components/ui/tooltip.tsx'
+} from 'remote/components/ui/tooltip'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { resolveConnectionData } from '#app/utils/connections.server.ts'
 import {
