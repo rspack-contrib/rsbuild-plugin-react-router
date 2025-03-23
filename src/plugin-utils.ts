@@ -3,9 +3,10 @@ import {
   findReferencedIdentifiers,
 } from 'babel-dead-code-elimination';
 import { normalize } from 'pathe';
+import { existsSync } from 'node:fs';
 import type { Babel, NodePath, ParseResult } from './babel.js';
 import { t, traverse } from './babel.js';
-import { NAMED_COMPONENT_EXPORTS } from './constants.js';
+import { NAMED_COMPONENT_EXPORTS, JS_EXTENSIONS } from './constants.js';
 
 export function validateDestructuredExports(
   id: Babel.ArrayPattern | Babel.ObjectPattern,
@@ -103,11 +104,26 @@ export function combineURLs(baseURL: string, relativeURL: string): string {
 }
 
 export function stripFileExtension(file: string): string {
-  return file.replace(/\.[a-z0-9]+$/i, '');
+  return file.replace(/\.[^/.]+$/, '');
 }
 
 export function createRouteId(file: string): string {
   return normalize(stripFileExtension(file));
+}
+
+/**
+ * Find a file with any of the supported JavaScript extensions
+ * @param basePath - The base path without extension
+ * @returns The file path with extension if found, or a default path
+ */
+export function findEntryFile(basePath: string): string {
+  for (const ext of JS_EXTENSIONS) {
+    const filePath = `${basePath}${ext}`;
+    if (existsSync(filePath)) {
+      return filePath;
+    }
+  }
+  return `${basePath}.tsx`; // Default to .tsx if no file exists
 }
 
 export function generateWithProps() {
