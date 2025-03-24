@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "concurrently \"cd epic-stack && pnpm dev\" \"cd epic-stack-remote && pnpm dev\"",
     "build": "concurrently \"cd epic-stack && pnpm build\" \"cd epic-stack-remote && pnpm build\"",
-    "setup": "concurrently \"cd epic-stack && pnpm setup\" \"cd epic-stack-remote && pnpm setup\""
+    "e2e": "concurrently \"cd epic-stack && sleep 5 && pnpm run test:e2e:run\" \"cd epic-stack-remote && pnpm run dev\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

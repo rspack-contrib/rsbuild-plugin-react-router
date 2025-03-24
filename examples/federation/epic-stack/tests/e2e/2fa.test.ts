@@ -9,12 +9,15 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 	const password = faker.internet.password()
 	const user = await login({ password })
 	await page.goto('/settings/profile')
+	await page.waitForTimeout(2000)
 
 	await page.getByRole('link', { name: /enable 2fa/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/settings/profile/two-factor`)
 	const main = page.getByRole('main')
 	await main.getByRole('button', { name: /enable 2fa/i }).click()
+	await page.waitForTimeout(500)
 	const otpUriString = await main
 		.getByLabel(/One-Time Password URI/i)
 		.innerText()
@@ -37,10 +40,12 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 	await expect(main.getByRole('link', { name: /disable 2fa/i })).toBeVisible()
 
 	await page.getByRole('link', { name: user.name ?? user.username }).click()
+	await page.waitForTimeout(500)
 	await page.getByRole('menuitem', { name: /logout/i }).click()
 	await expect(page).toHaveURL(`/`)
 
 	await page.goto('/login')
+	await page.waitForTimeout(2000)
 	await expect(page).toHaveURL(`/login`)
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(password)

@@ -1,11 +1,10 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { data, redirect, Form as ReactRouterForm } from 'react-router'
-import { Form } from 'remote/components/forms'
+import { data, redirect, Form } from 'react-router'
 import { z } from 'zod'
 import { ErrorList, Field } from 'remote/components/forms'
-import { Icon } from 'remote/components/ui/icon'
+import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from 'remote/components/ui/status-button'
 import {
 	prepareVerification,

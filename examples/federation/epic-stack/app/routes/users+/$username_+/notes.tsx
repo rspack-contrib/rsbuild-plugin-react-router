@@ -1,7 +1,7 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { Link, NavLink, Outlet } from 'react-router'
 import { GeneralErrorBoundary } from 'remote/components/error-boundary'
-import { Icon } from 'remote/components/ui/icon'
+import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'

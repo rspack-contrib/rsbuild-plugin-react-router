@@ -5,15 +5,18 @@ import { expect, test } from '#tests/playwright-utils.ts'
 test('Users can create notes', async ({ page, login }) => {
 	const user = await login()
 	await page.goto(`/users/${user.username}/notes`)
+	await page.waitForTimeout(2000)
 
 	const newNote = createNote()
 	await page.getByRole('link', { name: /New Note/i }).click()
+	await page.waitForTimeout(500)
 
 	// fill in form and submit
 	await page.getByRole('textbox', { name: /title/i }).fill(newNote.title)
 	await page.getByRole('textbox', { name: /content/i }).fill(newNote.content)
 
 	await page.getByRole('button', { name: /submit/i }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL(new RegExp(`/users/${user.username}/notes/.*`))
 })
 
@@ -25,15 +28,18 @@ test('Users can edit notes', async ({ page, login }) => {
 		data: { ...createNote(), ownerId: user.id },
 	})
 	await page.goto(`/users/${user.username}/notes/${note.id}`)
+	await page.waitForTimeout(2000)
 
 	// edit the note
 	await page.getByRole('link', { name: 'Edit', exact: true }).click()
+	await page.waitForTimeout(500)
 	const updatedNote = createNote()
 	await page.getByRole('textbox', { name: /title/i }).fill(updatedNote.title)
 	await page
 		.getByRole('textbox', { name: /content/i })
 		.fill(updatedNote.content)
 	await page.getByRole('button', { name: /submit/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/users/${user.username}/notes/${note.id}`)
 	await expect(
@@ -49,6 +55,7 @@ test('Users can delete notes', async ({ page, login }) => {
 		data: { ...createNote(), ownerId: user.id },
 	})
 	await page.goto(`/users/${user.username}/notes/${note.id}`)
+	await page.waitForTimeout(2000)
 
 	// find links with href prefix
 	const noteLinks = page
@@ -58,6 +65,7 @@ test('Users can delete notes', async ({ page, login }) => {
 		.getByRole('link')
 	const countBefore = await noteLinks.count()
 	await page.getByRole('button', { name: /delete/i }).click()
+	await page.waitForTimeout(500)
 	await expect(
 		page.getByText('Your note has been deleted.', { exact: true }),
 	).toBeVisible()

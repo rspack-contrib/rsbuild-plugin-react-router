@@ -5,6 +5,57 @@ import { pluginReactRouter } from '@rsbuild/plugin-react-router'
 
 import 'react-router'
 
+// Common shared dependencies for Module Federation
+const sharedDependencies = {
+	'react-router': {
+		singleton: true,
+	},
+	'react-router/': {
+		singleton: true,
+	},
+	react: {
+		singleton: true,
+	},
+	'react/': {
+		singleton: true,
+	},
+	'react-dom': {
+		singleton: true,
+	},
+	'react-dom/': {
+		singleton: true,
+	},
+}
+
+// Common Module Federation configuration
+const commonFederationConfig = {
+	name: 'host',
+	shareStrategy: "loaded-first" as const,
+	shared: sharedDependencies,
+	manifest: {
+		filePath: 'static'
+	},
+}
+
+// Web-specific federation config
+const webFederationConfig = {
+	...commonFederationConfig,
+	remoteType: 'import' as const,
+	remotes: {
+		remote: 'http://localhost:3001/static/mf-manifest.json',
+	},
+}
+
+// Node-specific federation config
+const nodeFederationConfig = {
+	...commonFederationConfig,
+	dts: false,
+	remotes: {
+		remote: 'remote@http://localhost:3001/static/static/mf-manifest.json',
+	},
+	runtimePlugins: ['@module-federation/node/runtimePlugin'],
+}
+
 export default defineConfig({
 	dev: {
 		client: {
@@ -27,38 +78,7 @@ export default defineConfig({
 			tools: {
 				rspack: {
 					plugins: [
-						new ModuleFederationPlugin({
-							name: 'host',
-							runtime: false,
-							shareStrategy: "loaded-first",
-							remoteType: 'import',
-							remotes: {
-								remote: 'http://localhost:3001/static/mf-manifest.json',
-							},
-							manifest: {
-								filePath: 'static'
-							},
-							shared: {
-								'react-router': {
-									singleton: true,
-								},
-								'react-router/': {
-									singleton: true,
-								},
-								react: {
-									singleton: true,
-								},
-								'react/': {
-									singleton: true,
-								},
-								'react-dom': {
-									singleton: true,
-								},
-								'react-dom/': {
-									singleton: true,
-								},
-							},
-						}),
+						new ModuleFederationPlugin(webFederationConfig),
 					],
 				},
 			},
@@ -73,38 +93,7 @@ export default defineConfig({
 			tools: {
 				rspack: {
 					plugins: [
-						new ModuleFederationPlugin({
-							name: 'host',
-							runtime: false,
-							manifest: {
-								filePath: 'static'
-							},
-							remotes: {
-								remote:
-									'remote@http://localhost:3001/static/static/mf-manifest.json',
-							},
-							runtimePlugins: ['@module-federation/node/runtimePlugin'],
-							shared: {
-								'react-router': {
-									singleton: true,
-								},
-								'react-router/': {
-									singleton: true,
-								},
-								react: {
-									singleton: true,
-								},
-								'react/': {
-									singleton: true,
-								},
-								'react-dom': {
-									singleton: true,
-								},
-								'react-dom/': {
-									singleton: true,
-								},
-							},
-						}),
+						new ModuleFederationPlugin(nodeFederationConfig),
 					],
 				},
 			},

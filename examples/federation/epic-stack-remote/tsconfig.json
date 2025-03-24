@@ -3,7 +3,7 @@
 	"extends": ["@epic-web/config/typescript"],
 	"compilerOptions": {
 		// TODO: Probably should move this into epic-web/config
-		"types": ["@react-router/node", "vite/client"],
+		"types": ["@react-router/node"],
 		"rootDirs": [".", "./.react-router/types"],
 		"paths": {
 			"#app/*": ["./app/*"],

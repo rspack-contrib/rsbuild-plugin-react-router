@@ -7,10 +7,12 @@ import { expect, test } from '#tests/playwright-utils.ts'
 test('Users can create note with an image', async ({ page, login }) => {
 	const user = await login()
 	await page.goto(`/users/${user.username}/notes`)
+	await page.waitForTimeout(2000)
 
 	const newNote = createNote()
 	const altText = 'cute koala'
 	await page.getByRole('link', { name: 'new note' }).click()
+	await page.waitForTimeout(500)
 
 	// fill in form and submit
 	await page.getByRole('textbox', { name: 'title' }).fill(newNote.title)
@@ -22,6 +24,7 @@ test('Users can create note with an image', async ({ page, login }) => {
 	await page.getByRole('textbox', { name: 'alt text' }).fill(altText)
 
 	await page.getByRole('button', { name: 'submit' }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL(new RegExp(`/users/${user.username}/notes/.*`))
 	await expect(page.getByRole('heading', { name: newNote.title })).toBeVisible()
 	await expect(page.getByAltText(altText)).toBeVisible()
@@ -30,11 +33,13 @@ test('Users can create note with an image', async ({ page, login }) => {
 test('Users can create note with multiple images', async ({ page, login }) => {
 	const user = await login()
 	await page.goto(`/users/${user.username}/notes`)
+	await page.waitForTimeout(2000)
 
 	const newNote = createNote()
 	const altText1 = 'cute koala'
 	const altText2 = 'koala coder'
 	await page.getByRole('link', { name: 'new note' }).click()
+	await page.waitForTimeout(500)
 
 	// fill in form and submit
 	await page.getByRole('textbox', { name: 'title' }).fill(newNote.title)
@@ -45,6 +50,7 @@ test('Users can create note with multiple images', async ({ page, login }) => {
 		.setInputFiles('tests/fixtures/images/kody-notes/cute-koala.png')
 	await page.getByLabel('alt text').nth(0).fill(altText1)
 	await page.getByRole('button', { name: 'add image' }).click()
+	await page.waitForTimeout(500)
 
 	await page
 		.getByLabel('image')
@@ -53,6 +59,7 @@ test('Users can create note with multiple images', async ({ page, login }) => {
 	await page.getByLabel('alt text').nth(1).fill(altText2)
 
 	await page.getByRole('button', { name: 'submit' }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL(new RegExp(`/users/${user.username}/notes/.*`))
 	await expect(page.getByRole('heading', { name: newNote.title })).toBeVisible()
 	await expect(page.getByAltText(altText1)).toBeVisible()
@@ -70,9 +77,11 @@ test('Users can edit note image', async ({ page, login }) => {
 		},
 	})
 	await page.goto(`/users/${user.username}/notes/${note.id}`)
+	await page.waitForTimeout(2000)
 
 	// edit the image
 	await page.getByRole('link', { name: 'Edit', exact: true }).click()
+	await page.waitForTimeout(500)
 	const updatedImage = {
 		altText: 'koala coder',
 		location: 'tests/fixtures/images/kody-notes/koala-coder.png',
@@ -80,6 +89,7 @@ test('Users can edit note image', async ({ page, login }) => {
 	await page.getByLabel('image').nth(0).setInputFiles(updatedImage.location)
 	await page.getByLabel('alt text').nth(0).fill(updatedImage.altText)
 	await page.getByRole('button', { name: 'submit' }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/users/${user.username}/notes/${note.id}`)
 	await expect(page.getByAltText(updatedImage.altText)).toBeVisible()
@@ -96,6 +106,7 @@ test('Users can delete note image', async ({ page, login }) => {
 		},
 	})
 	await page.goto(`/users/${user.username}/notes/${note.id}`)
+	await page.waitForTimeout(2000)
 
 	await expect(page.getByRole('heading', { name: note.title })).toBeVisible()
 	// find image tags
@@ -106,8 +117,11 @@ test('Users can delete note image', async ({ page, login }) => {
 		.getByRole('img')
 	const countBefore = await images.count()
 	await page.getByRole('link', { name: 'Edit', exact: true }).click()
+	await page.waitForTimeout(500)
 	await page.getByRole('button', { name: 'remove image' }).click()
+	await page.waitForTimeout(500)
 	await page.getByRole('button', { name: 'submit' }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL(`/users/${user.username}/notes/${note.id}`)
 	const countAfter = await images.count()
 	expect(countAfter).toEqual(countBefore - 1)

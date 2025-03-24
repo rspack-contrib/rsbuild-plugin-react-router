@@ -6,35 +6,82 @@ import type { Compiler } from '@rspack/core'
 
 import 'react-router'
 
-class RuntimePlugin {
-	apply(compiler: Compiler) {
-		const { RuntimeGlobals } = compiler.webpack;
-		compiler.hooks.compilation.tap('CustomPlugin', compilation => {
-			compiler.options.devtool = false
-			compilation.hooks.runtimeModule.tap(
-				'CustomPlugin',
-				(module: any, chunk: any) => {
-					if(module.name === "module_chunk_loading") {
-						const interceptor =`
-						console.log('test');
-						var getModuleUrl = function() {
-						console.log('Getting module URL', import.meta.url);
-							return import.meta.url;
-						};
-						
-						var importInterceptor = function(path) {
-							var currentUrl = getModuleUrl();
-							console.log('Importing:', path);
-							console.log('From module:', currentUrl);
-							return import(path);
-						};\n
-						`
-						module.source.source = interceptor + module.source.source.replace(/import\(/g, 'importInterceptor(');
-					}
-				}
-			);
-		});
+
+// Common shared dependencies for Module Federation
+const sharedDependencies = {
+	'react-router': {
+		singleton: true,
+	},
+	'react-router/': {
+		singleton: true,
+	},
+	react: {
+		singleton: true,
+	},
+	'react/': {
+		singleton: true,
+	},
+	'react-dom': {
+		singleton: true,
+	},
+	'react-dom/': {
+		singleton: true,
+	},
+}
+
+// Common exposed components
+const exposedComponents = {
+	'./components/search-bar': './app/components/search-bar',
+	'./components/user-dropdown': './app/components/user-dropdown',
+	'./components/spacer': './app/components/spacer',
+	'./components/toaster': './app/components/toaster',
+	'./components/error-boundary': './app/components/error-boundary',
+	'./components/floating-toolbar': './app/components/floating-toolbar',
+	'./components/forms': './app/components/forms',
+	'./components/progress-bar': './app/components/progress-bar',
+	'./components/ui/tooltip': './app/components/ui/tooltip',
+	'./components/ui/status-button': './app/components/ui/status-button',
+	'./components/ui/textarea': './app/components/ui/textarea',
+	'./components/ui/sonner': './app/components/ui/sonner',
+	'./components/ui/label': './app/components/ui/label',
+	'./components/ui/input': './app/components/ui/input',
+	'./components/ui/input-otp': './app/components/ui/input-otp',
+	'./components/ui/dropdown-menu': './app/components/ui/dropdown-menu',
+	'./components/ui/icon': './app/components/ui/icon',
+	'./components/ui/button': './app/components/ui/button',
+	'./components/ui/checkbox': './app/components/ui/checkbox',
+	"./utils/connections": "./app/utils/connections",
+}
+
+// Common Module Federation configuration
+const commonFederationConfig = {
+	name: 'remote',
+	shareStrategy: "loaded-first" as const,
+	runtime: false,
+	exposes: exposedComponents,
+	shared: sharedDependencies,
+	manifest: {
+		filePath: 'static'
 	}
+}
+
+// Web-specific federation config
+const webFederationConfig = {
+	...commonFederationConfig,
+	library: {
+		type: 'module'
+	},
+}
+
+// Node-specific federation config
+const nodeFederationConfig = {
+	...commonFederationConfig,
+	library: {
+		type: 'commonjs-module'
+	},
+	runtimePlugins: [
+		'@module-federation/node/runtimePlugin'
+	],
 }
 
 export default defineConfig({
@@ -58,121 +105,20 @@ export default defineConfig({
 			tools: {
 				rspack: {
 					plugins: [
-						new ModuleFederationPlugin({
-							name: 'remote',
-							library: {
-								type: 'module'
-							},
-							shareStrategy: "loaded-first",
-							runtime: false,
-							manifest: {
-								filePath: 'static'
-							},
-							exposes: {
-								'./components/search-bar': './app/components/search-bar',
-								'./components/user-dropdown': './app/components/user-dropdown',
-								'./components/spacer': './app/components/spacer',
-								'./components/toaster': './app/components/toaster',
-								'./components/error-boundary': './app/components/error-boundary',
-								'./components/floating-toolbar': './app/components/floating-toolbar',
-								'./components/forms': './app/components/forms',
-								'./components/progress-bar': './app/components/progress-bar',
-								'./components/ui/tooltip': './app/components/ui/tooltip',
-								'./components/ui/status-button': './app/components/ui/status-button',
-								'./components/ui/textarea': './app/components/ui/textarea',
-								'./components/ui/sonner': './app/components/ui/sonner',
-								'./components/ui/label': './app/components/ui/label',
-								'./components/ui/input': './app/components/ui/input',
-								'./components/ui/input-otp': './app/components/ui/input-otp',
-								'./components/ui/dropdown-menu': './app/components/ui/dropdown-menu',
-								'./components/ui/icon': './app/components/ui/icon',
-								'./components/ui/button': './app/components/ui/button',
-								'./components/ui/checkbox': './app/components/ui/checkbox',
-							},
-							shared: {
-								'react-router': {
-									singleton: true,
-								},
-								'react-router/': {
-									singleton: true,
-								},
-								react: {
-									singleton: true,
-								},
-								'react/': {
-									singleton: true,
-								},
-								'react-dom': {
-									singleton: true,
-								},
-								'react-dom/': {
-									singleton: true,
-								},
-							}
-						})
+						new ModuleFederationPlugin(webFederationConfig)
 					]
 				}
 			},
 			plugins: []
 		},
 		node: {
+			output: {
+				assetPrefix: 'http://localhost:3001/',
+			},
 			tools: {
 				rspack: {
 					plugins: [
-						new ModuleFederationPlugin({
-							name: 'remote',
-							library: {
-								type: 'commonjs-module'
-							},
-							manifest: {
-								filePath: 'static'
-							},
-							runtimePlugins: [
-								'@module-federation/node/runtimePlugin'
-							],
-							runtime: false,
-							exposes: {
-								'./components/search-bar': './app/components/search-bar',
-								'./components/user-dropdown': './app/components/user-dropdown',
-								'./components/spacer': './app/components/spacer',
-								'./components/toaster': './app/components/toaster',
-								'./components/error-boundary': './app/components/error-boundary',
-								'./components/floating-toolbar': './app/components/floating-toolbar',
-								'./components/forms': './app/components/forms',
-								'./components/progress-bar': './app/components/progress-bar',
-								'./components/ui/tooltip': './app/components/ui/tooltip',
-								'./components/ui/status-button': './app/components/ui/status-button',
-								'./components/ui/textarea': './app/components/ui/textarea',
-								'./components/ui/sonner': './app/components/ui/sonner',
-								'./components/ui/label': './app/components/ui/label',
-								'./components/ui/input': './app/components/ui/input',
-								'./components/ui/input-otp': './app/components/ui/input-otp',
-								'./components/ui/dropdown-menu': './app/components/ui/dropdown-menu',
-								'./components/ui/icon': './app/components/ui/icon',
-								'./components/ui/button': './app/components/ui/button',
-								'./components/ui/checkbox': './app/components/ui/checkbox',
-							},
-							shared: {
-								'react-router': {
-									singleton: true,
-								},
-								'react-router/': {
-									singleton: true,
-								},
-								react: {
-									singleton: true,
-								},
-								'react/': {
-									singleton: true,
-								},
-								'react-dom': {
-									singleton: true,
-								},
-								'react-dom/': {
-									singleton: true,
-								},
-							}
-						})
+						new ModuleFederationPlugin(nodeFederationConfig)
 					]
 				}
 			},

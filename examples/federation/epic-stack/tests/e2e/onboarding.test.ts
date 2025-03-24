@@ -44,14 +44,17 @@ test('onboarding with link', async ({ page, getOnboardingData }) => {
 	const onboardingData = getOnboardingData()
 
 	await page.goto('/')
+	await page.waitForTimeout(2000)
 
 	await page.getByRole('link', { name: /log in/i }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL(`/login`)
 
 	const createAccountLink = page.getByRole('link', {
 		name: /create an account/i,
 	})
 	await createAccountLink.click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/signup`)
 
@@ -60,6 +63,7 @@ test('onboarding with link', async ({ page, getOnboardingData }) => {
 	await emailTextbox.fill(onboardingData.email)
 
 	await page.getByRole('button', { name: /submit/i }).click()
+	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /submit/i, disabled: true }),
 	).toBeVisible()
@@ -73,6 +77,7 @@ test('onboarding with link', async ({ page, getOnboardingData }) => {
 	const onboardingUrl = extractUrl(email.text)
 	invariant(onboardingUrl, 'Onboarding URL not found')
 	await page.goto(onboardingUrl)
+	await page.waitForTimeout(2000)
 
 	await expect(page).toHaveURL(/\/verify/)
 
@@ -80,6 +85,7 @@ test('onboarding with link', async ({ page, getOnboardingData }) => {
 		.getByRole('main')
 		.getByRole('button', { name: /submit/i })
 		.click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/onboarding`)
 	await page
@@ -93,20 +99,27 @@ test('onboarding with link', async ({ page, getOnboardingData }) => {
 	await page.getByLabel(/^confirm password/i).fill(onboardingData.password)
 
 	await page.getByLabel(/terms/i).check()
+	await page.waitForTimeout(500)
 
 	await page.getByLabel(/remember me/i).check()
+	await page.waitForTimeout(500)
 
 	await page.getByRole('button', { name: /Create an account/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/`)
 
 	await page.getByRole('link', { name: onboardingData.name }).click()
+	await page.waitForTimeout(500)
 	await page.getByRole('menuitem', { name: /profile/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/users/${onboardingData.username}`)
 
 	await page.getByRole('link', { name: onboardingData.name }).click()
+	await page.waitForTimeout(500)
 	await page.getByRole('menuitem', { name: /logout/i }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL(`/`)
 })
 
@@ -114,12 +127,14 @@ test('onboarding with a short code', async ({ page, getOnboardingData }) => {
 	const onboardingData = getOnboardingData()
 
 	await page.goto('/signup')
+	await page.waitForTimeout(2000)
 
 	const emailTextbox = page.getByRole('textbox', { name: /email/i })
 	await emailTextbox.click()
 	await emailTextbox.fill(onboardingData.email)
 
 	await page.getByRole('button', { name: /submit/i }).click()
+	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /submit/i, disabled: true }),
 	).toBeVisible()
@@ -135,6 +150,7 @@ test('onboarding with a short code', async ({ page, getOnboardingData }) => {
 	invariant(code, 'Onboarding code not found')
 	await page.getByRole('textbox', { name: /code/i }).fill(code)
 	await page.getByRole('button', { name: /submit/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/onboarding`)
 })
@@ -153,7 +169,9 @@ test('completes onboarding after GitHub OAuth given valid user details', async (
 	).toBeNull()
 
 	await page.goto('/signup')
+	await page.waitForTimeout(2000)
 	await page.getByRole('button', { name: /signup with github/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(/\/onboarding\/github/)
 	await expect(
@@ -176,7 +194,9 @@ test('completes onboarding after GitHub OAuth given valid user details', async (
 	await page
 		.getByLabel(/do you agree to our terms of service and privacy policy/i)
 		.check()
+	await page.waitForTimeout(500)
 	await createAccountButton.click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL(/signup/i)
 
 	// we are still on the 'signup' route since that
@@ -221,7 +241,9 @@ test('logs user in after GitHub OAuth if they are already registered', async ({
 	expect(connection).toBeNull()
 
 	await page.goto('/signup')
+	await page.waitForTimeout(2000)
 	await page.getByRole('button', { name: /signup with github/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/`)
 	await expect(
@@ -246,7 +268,9 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 	const ghUser = await prepareGitHubUser()
 
 	await page.goto('/signup')
+	await page.waitForTimeout(2000)
 	await page.getByRole('button', { name: /signup with github/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(/\/onboarding\/github/)
 	await expect(
@@ -265,6 +289,7 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 	// invalid chars in username
 	await usernameInput.fill('U$er_name') // $ is invalid char, see app/utils/user-validation.ts.
 	await createAccountButton.click()
+	await page.waitForTimeout(500)
 
 	await expect(createAccountButton.getByRole('status')).toBeVisible()
 	await expect(createAccountButton.getByText('error')).toBeAttached()
@@ -284,6 +309,7 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 	// empty username
 	await usernameInput.fill('')
 	await createAccountButton.click()
+	await page.waitForTimeout(500)
 	await expect(page.getByText(/username is required/i)).toBeVisible()
 	await expect(page).toHaveURL(/\/onboarding\/github/)
 
@@ -292,6 +318,7 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 		faker.string.alphanumeric({ length: USERNAME_MIN_LENGTH - 1 }),
 	)
 	await createAccountButton.click()
+	await page.waitForTimeout(500)
 	await expect(page.getByText(/username is too short/i)).toBeVisible()
 
 	// too long username
@@ -303,6 +330,7 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 	// we are truncating the user's input
 	expect((await usernameInput.inputValue()).length).toBe(USERNAME_MAX_LENGTH)
 	await createAccountButton.click()
+	await page.waitForTimeout(500)
 	await expect(page.getByText(/username is too long/i)).not.toBeVisible()
 
 	// still unchecked 'terms of service' checkbox
@@ -310,6 +338,7 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 		normalizeUsername(`U5er_name_0k_${faker.person.lastName()}`),
 	)
 	await createAccountButton.click()
+	await page.waitForTimeout(500)
 	await expect(
 		page.getByText(/must agree to the terms of service and privacy policy/i),
 	).toBeVisible()
@@ -319,7 +348,9 @@ test('shows help texts on entering invalid details on onboarding page after GitH
 	await page
 		.getByLabel(/do you agree to our terms of service and privacy policy/i)
 		.check()
+	await page.waitForTimeout(500)
 	await createAccountButton.click()
+	await page.waitForTimeout(500)
 	await expect(createAccountButton.getByText('error')).not.toBeAttached()
 
 	// ... sign up is successful!
@@ -331,9 +362,11 @@ test('login as existing user', async ({ page, insertNewUser }) => {
 	const user = await insertNewUser({ password })
 	invariant(user.name, 'User name not found')
 	await page.goto('/login')
+	await page.waitForTimeout(2000)
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(password)
 	await page.getByRole('button', { name: /log in/i }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL(`/`)
 
 	await expect(page.getByRole('link', { name: user.name })).toBeVisible()
@@ -344,8 +377,10 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 	const user = await insertNewUser({ password: originalPassword })
 	invariant(user.name, 'User name not found')
 	await page.goto('/login')
+	await page.waitForTimeout(2000)
 
 	await page.getByRole('link', { name: /forgot password/i }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL('/forgot-password')
 
 	await expect(
@@ -353,6 +388,7 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 	).toBeVisible()
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByRole('button', { name: /recover password/i }).click()
+	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /recover password/i, disabled: true }),
 	).toBeVisible()
@@ -366,6 +402,7 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 	const resetPasswordUrl = extractUrl(email.text)
 	invariant(resetPasswordUrl, 'Reset password URL not found')
 	await page.goto(resetPasswordUrl)
+	await page.waitForTimeout(2000)
 
 	await expect(page).toHaveURL(/\/verify/)
 
@@ -373,6 +410,7 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 		.getByRole('main')
 		.getByRole('button', { name: /submit/i })
 		.click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/reset-password`)
 	const newPassword = faker.internet.password()
@@ -380,6 +418,7 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 	await page.getByLabel(/^confirm password$/i).fill(newPassword)
 
 	await page.getByRole('button', { name: /reset password/i }).click()
+	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /reset password/i, disabled: true }),
 	).toBeVisible()
@@ -388,11 +427,13 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(originalPassword)
 	await page.getByRole('button', { name: /log in/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page.getByText(/invalid username or password/i)).toBeVisible()
 
 	await page.getByLabel(/^password$/i).fill(newPassword)
 	await page.getByRole('button', { name: /log in/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/`)
 
@@ -402,8 +443,10 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 test('reset password with a short code', async ({ page, insertNewUser }) => {
 	const user = await insertNewUser()
 	await page.goto('/login')
+	await page.waitForTimeout(2000)
 
 	await page.getByRole('link', { name: /forgot password/i }).click()
+	await page.waitForTimeout(500)
 	await expect(page).toHaveURL('/forgot-password')
 
 	await expect(
@@ -411,6 +454,7 @@ test('reset password with a short code', async ({ page, insertNewUser }) => {
 	).toBeVisible()
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByRole('button', { name: /recover password/i }).click()
+	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /recover password/i, disabled: true }),
 	).toBeVisible()
@@ -426,6 +470,7 @@ test('reset password with a short code', async ({ page, insertNewUser }) => {
 	invariant(code, 'Reset Password code not found')
 	await page.getByRole('textbox', { name: /code/i }).fill(code)
 	await page.getByRole('button', { name: /submit/i }).click()
+	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(`/reset-password`)
 })

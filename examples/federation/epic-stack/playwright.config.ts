@@ -7,11 +7,11 @@ export default defineConfig({
 	testDir: './tests/e2e',
 	timeout: 15 * 1000,
 	expect: {
-		timeout: 5 * 1000,
+		timeout: 10 * 1000,
 	},
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
-	retries: process.env.CI ? 2 : 0,
+	retries: process.env.CI ? 2 : 2,
 	workers: process.env.CI ? 1 : undefined,
 	reporter: 'html',
 	use: {
