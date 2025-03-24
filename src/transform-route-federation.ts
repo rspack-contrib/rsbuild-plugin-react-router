@@ -8,7 +8,9 @@ import type { TransformArgs } from './types.js';
  * Transforms route modules with the react-router-route-federation resource query
  * This handles proper code transformation for federated routes
  */
-export async function transformRouteFederation(args: TransformArgs): Promise<string> {
+export async function transformRouteFederation(
+  args: TransformArgs
+): Promise<string> {
   let code = args.code;
   const defaultExportMatch = code.match(/\n\s{0,}([\w\d_]+)\sas default,?/);
   if (defaultExportMatch && typeof defaultExportMatch.index === 'number') {
@@ -64,8 +66,8 @@ export async function transformRouteFederation(args: TransformArgs): Promise<str
     },
   });
 
-  const output = result.metafile.outputs['stdin.js']
-if(args.environment?.name === 'node') {
+  const output = result.metafile.outputs['stdin.js'];
+  if (args.environment?.name === 'node') {
     const res = `
     let cache;
     const loadRoute = async (exportName)=>{
@@ -77,27 +79,27 @@ if(args.environment?.name === 'node') {
      return exp[exportName]
     }
     
-    ${output.exports.map((exp)=>{
-      if(exp === 'default') {
-        return `export default (...args) => loadRoute("default").then(fn => typeof fn === 'function' ? fn(...args) : fn);`;
-      }
-      return `export const ${exp} = (...args) => loadRoute(${JSON.stringify(exp)}).then(fn => typeof fn === 'function' ? fn(...args) : fn);`;
-    }).join('\n')}
+    ${output.exports
+      .map(exp => {
+        if (exp === 'default') {
+          return `export default (...args) => loadRoute("default").then(fn => typeof fn === 'function' ? fn(...args) : fn);`;
+        }
+        return `export const ${exp} = (...args) => loadRoute(${JSON.stringify(exp)}).then(fn => typeof fn === 'function' ? fn(...args) : fn);`;
+      })
+      .join('\n')}
     `;
 
     return res;
-}
-
+  }
 
   const res = `const moduleProxy = await import('${args.resourcePath}?react-router-route');
 ${
-    output.exports.includes('default')
-      ? `const { default: defaultExport, ${output.exports.filter(exp => exp !== 'default').join(', ')} } = moduleProxy;`
-      : `const { ${output.exports.join(', ')} } = moduleProxy;`
+  output.exports.includes('default')
+    ? `const { default: defaultExport, ${output.exports.filter(exp => exp !== 'default').join(', ')} } = moduleProxy;`
+    : `const { ${output.exports.join(', ')} } = moduleProxy;`
 }
-export { ${output.exports.map(exp => exp === 'default' ? 'defaultExport as default' : exp).join(', ')} };
+export { ${output.exports.map(exp => (exp === 'default' ? 'defaultExport as default' : exp)).join(', ')} };
 `;
 
   return res;
 }
-
