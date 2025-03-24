@@ -49,7 +49,6 @@ const webFederationConfig = {
 // Node-specific federation config
 const nodeFederationConfig = {
 	...commonFederationConfig,
-	dts: false,
 	remotes: {
 		remote: 'remote@http://localhost:3001/static/static/mf-manifest.json',
 	},
