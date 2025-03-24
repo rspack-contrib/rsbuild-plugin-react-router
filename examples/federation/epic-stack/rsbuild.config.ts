@@ -67,11 +67,6 @@ export default defineConfig({
 	},
 	environments: {
 		web: {
-			source: {
-				define: {
-					'process.env.WEB': 'true',
-				},
-			},
 			tools: {
 				rspack: {
 					plugins: [
@@ -82,11 +77,6 @@ export default defineConfig({
 			plugins: [],
 		},
 		node: {
-			source: {
-				define: {
-					'process.env.WEB': 'false',
-				},
-			},
 			tools: {
 				rspack: {
 					plugins: [

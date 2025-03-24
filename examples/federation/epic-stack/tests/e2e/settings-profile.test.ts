@@ -20,7 +20,6 @@ test('Users can update their basic info', async ({ page, login }) => {
 		.fill(newUserData.username)
 
 	await page.getByRole('button', { name: /^save/i }).click()
-	await page.waitForTimeout(2000)
 })
 
 test('Users can update their password', async ({ page, login }) => {
@@ -31,7 +30,6 @@ test('Users can update their password', async ({ page, login }) => {
 	await page.waitForTimeout(2000)
 
 	await page.getByRole('link', { name: /change password/i }).click()
-	await page.waitForTimeout(2000)
 
 	await page
 		.getByRole('textbox', { name: /^current password/i })
@@ -42,7 +40,6 @@ test('Users can update their password', async ({ page, login }) => {
 		.fill(newPassword)
 
 	await page.getByRole('button', { name: /^change password/i }).click()
-	await page.waitForTimeout(2000)
 
 	await expect(page).toHaveURL(`/settings/profile`)
 
@@ -67,7 +64,6 @@ test('Users can update their profile photo', async ({ page, login }) => {
 		.getAttribute('src')
 
 	await page.getByRole('link', { name: /change profile photo/i }).click()
-	await page.waitForTimeout(2000)
 
 	await expect(page).toHaveURL(`/settings/profile/photo`)
 
@@ -76,7 +72,6 @@ test('Users can update their profile photo', async ({ page, login }) => {
 		.setInputFiles('./tests/fixtures/images/user/kody.png')
 
 	await page.getByRole('button', { name: /save/i }).click()
-	await page.waitForTimeout(2000)
 
 	await expect(
 		page,
@@ -97,10 +92,8 @@ test('Users can change their email address', async ({ page, login }) => {
 	await page.goto('/settings/profile')
 	await page.waitForTimeout(2000)
 	await page.getByRole('link', { name: /change email/i }).click()
-	await page.waitForTimeout(2000)
 	await page.getByRole('textbox', { name: /new email/i }).fill(newEmailAddress)
 	await page.getByRole('button', { name: /send confirmation/i }).click()
-	await page.waitForTimeout(2000)
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await waitFor(() => readEmail(newEmailAddress), {
 		errorMessage: 'Confirmation email was not sent',
@@ -111,7 +104,6 @@ test('Users can change their email address', async ({ page, login }) => {
 	invariant(code, 'Onboarding code not found')
 	await page.getByRole('textbox', { name: /code/i }).fill(code)
 	await page.getByRole('button', { name: /submit/i }).click()
-	await page.waitForTimeout(2000)
 	await expect(page.getByText(/email changed/i)).toBeVisible()
 
 	const updatedUser = await prisma.user.findUnique({
