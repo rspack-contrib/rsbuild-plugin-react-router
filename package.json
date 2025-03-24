@@ -36,7 +36,7 @@
   },
   "scripts": {
     "build": "rslib build",
-    "e2e": "pnpm build && cd examples/default-template && pnpm test:e2e && npx kill-port 3000 3001 && cd ../custom-node-server && pnpm test:e2e",
+    "e2e": "pnpm build && cd examples/default-template && pnpm test:e2e && npx kill-port 3000 && cd ../custom-node-server && pnpm test:e2e",
     "dev": "rslib build --watch",
     "test": "vitest run",
     "test:watch": "vitest watch",
@@ -82,6 +82,7 @@
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
     "jiti": "^2.4.1",
+    "kill-port": "^2.0.1",
     "killport": "^1.0.2",
     "playwright": "^1.50.1",
     "prettier": "3.4.2",
