@@ -41,6 +41,10 @@ export default defineConfig(() => {
       pluginReactRouter({
         // Optional: Enable custom server mode
         customServer: false,
+        // Optional: Specify server output format
+        serverOutput: "commonjs",
+        //Optional: enable experimental support for module federation
+        federation: false
       }), 
       pluginReact()
     ],
@@ -60,7 +64,19 @@ pluginReactRouter({
    * Enable this when you want to handle server setup manually.
    * @default false
    */
-  customServer?: boolean
+  customServer?: boolean,
+
+  /**
+   * Specify the output format for server-side code.
+   * Options: "commonjs" | "module"
+   * @default "module"
+   */
+  serverOutput?: "commonjs" | "module"
+  /**
+   * Enable experimental support for module federation
+   * @default false
+   */
+  federation?: boolean
 })
 ```
 
