@@ -4,7 +4,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from 'remote/components/ui/tooltip'
-import { cn } from '#app/utils/misc.tsx'
+import { cn } from 'remote/utils/misc'
 import { type Route } from './+types/index.ts'
 import { logos } from './logos/logos.ts'
 

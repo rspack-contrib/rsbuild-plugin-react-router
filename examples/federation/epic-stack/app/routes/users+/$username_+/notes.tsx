@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router'
 import { GeneralErrorBoundary } from 'remote/components/error-boundary'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { cn, getUserImgSrc } from '#app/utils/misc.tsx'
+import { cn, getUserImgSrc } from 'remote/utils/misc'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { type Route } from './+types/notes.ts'
 

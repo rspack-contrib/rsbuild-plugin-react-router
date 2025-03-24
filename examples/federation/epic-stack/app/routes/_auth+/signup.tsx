@@ -15,7 +15,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { checkHoneypot } from '#app/utils/honeypot.server.ts'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { useIsPending } from 'remote/utils/misc'
 import { EmailSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/signup.ts'
 import { prepareVerification } from './verify.server.ts'

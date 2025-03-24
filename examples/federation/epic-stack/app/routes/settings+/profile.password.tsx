@@ -13,7 +13,7 @@ import {
 	verifyUserPassword,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { useIsPending } from 'remote/utils/misc'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { PasswordSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/profile.password.ts'

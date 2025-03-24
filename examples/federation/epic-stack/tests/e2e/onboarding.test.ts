@@ -63,7 +63,6 @@ test('onboarding with link', async ({ page, getOnboardingData }) => {
 	await emailTextbox.fill(onboardingData.email)
 
 	await page.getByRole('button', { name: /submit/i }).click()
-	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /submit/i, disabled: true }),
 	).toBeVisible()
@@ -134,7 +133,6 @@ test('onboarding with a short code', async ({ page, getOnboardingData }) => {
 	await emailTextbox.fill(onboardingData.email)
 
 	await page.getByRole('button', { name: /submit/i }).click()
-	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /submit/i, disabled: true }),
 	).toBeVisible()
@@ -171,7 +169,6 @@ test('completes onboarding after GitHub OAuth given valid user details', async (
 	await page.goto('/signup')
 	await page.waitForTimeout(2000)
 	await page.getByRole('button', { name: /signup with github/i }).click()
-	await page.waitForTimeout(500)
 
 	await expect(page).toHaveURL(/\/onboarding\/github/)
 	await expect(
@@ -388,7 +385,6 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 	).toBeVisible()
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByRole('button', { name: /recover password/i }).click()
-	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /recover password/i, disabled: true }),
 	).toBeVisible()
@@ -418,7 +414,6 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 	await page.getByLabel(/^confirm password$/i).fill(newPassword)
 
 	await page.getByRole('button', { name: /reset password/i }).click()
-	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /reset password/i, disabled: true }),
 	).toBeVisible()
@@ -427,14 +422,11 @@ test('reset password with a link', async ({ page, insertNewUser }) => {
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(originalPassword)
 	await page.getByRole('button', { name: /log in/i }).click()
-	await page.waitForTimeout(500)
 
 	await expect(page.getByText(/invalid username or password/i)).toBeVisible()
 
 	await page.getByLabel(/^password$/i).fill(newPassword)
 	await page.getByRole('button', { name: /log in/i }).click()
-	await page.waitForTimeout(500)
-
 	await expect(page).toHaveURL(`/`)
 
 	await expect(page.getByRole('link', { name: user.name })).toBeVisible()
@@ -454,7 +446,6 @@ test('reset password with a short code', async ({ page, insertNewUser }) => {
 	).toBeVisible()
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByRole('button', { name: /recover password/i }).click()
-	await page.waitForTimeout(500)
 	await expect(
 		page.getByRole('button', { name: /recover password/i, disabled: true }),
 	).toBeVisible()

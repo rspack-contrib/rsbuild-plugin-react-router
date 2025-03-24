@@ -9,7 +9,7 @@ import { ErrorList, OTPField } from 'remote/components/forms'
 import { Spacer } from 'remote/components/spacer'
 import { StatusButton } from 'remote/components/ui/status-button'
 import { checkHoneypot } from '#app/utils/honeypot.server.ts'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { useIsPending } from 'remote/utils/misc'
 import { type Route } from './+types/verify.ts'
 import { validateRequest } from './verify.server.ts'
 

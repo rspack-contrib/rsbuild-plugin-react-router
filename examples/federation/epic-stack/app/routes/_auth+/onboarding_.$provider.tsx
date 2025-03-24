@@ -26,7 +26,7 @@ import {
 import { connectionSessionStorage } from '#app/utils/connections.server'
 import { ProviderNameSchema } from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { useIsPending } from 'remote/utils/misc'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { NameSchema, UsernameSchema } from '#app/utils/user-validation.ts'

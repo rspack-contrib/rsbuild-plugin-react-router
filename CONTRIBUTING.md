@@ -1,4 +1,4 @@
-# Contributing to @rsbuild/plugin-react-router
+# Contributing to rsbuild-plugin-react-router
 
 ## Development Workflow
 

@@ -201,7 +201,7 @@ importers:
       '@rsbuild/plugin-react':
         specifier: ^1.1.1
         version: 1.1.1(@rsbuild/core@1.2.19)
-      '@rsbuild/plugin-react-router':
+      'rsbuild-plugin-react-router':
         specifier: workspace:*
         version: link:../..
       '@tailwindcss/postcss':
@@ -262,7 +262,7 @@ importers:
       '@rsbuild/plugin-react':
         specifier: ^1.1.1
         version: 1.1.1(@rsbuild/core@1.2.19)
-      '@rsbuild/plugin-react-router':
+      'rsbuild-plugin-react-router':
         specifier: workspace:*
         version: link:../..
       '@rsdoctor/rspack-plugin':
@@ -323,7 +323,7 @@ importers:
       '@rsbuild/plugin-react':
         specifier: ^1.1.1
         version: 1.1.1(@rsbuild/core@1.2.19)
-      '@rsbuild/plugin-react-router':
+      'rsbuild-plugin-react-router':
         specifier: workspace:*
         version: link:../..
       '@tailwindcss/postcss':
@@ -437,7 +437,7 @@ importers:
       '@rsbuild/plugin-react':
         specifier: 1.1.1
         version: 1.1.1(@rsbuild/core@1.2.19)
-      '@rsbuild/plugin-react-router':
+      'rsbuild-plugin-react-router':
         specifier: workspace:*
         version: link:../..
       '@sentry/node':
@@ -810,7 +810,7 @@ importers:
       '@rsbuild/plugin-react':
         specifier: 1.1.1
         version: 1.1.1(@rsbuild/core@1.2.19)
-      '@rsbuild/plugin-react-router':
+      'rsbuild-plugin-react-router':
         specifier: workspace:*
         version: link:../../..
       '@sentry/node':
@@ -1165,7 +1165,7 @@ importers:
       '@rsbuild/plugin-react':
         specifier: 1.1.1
         version: 1.1.1(@rsbuild/core@1.2.19)
-      '@rsbuild/plugin-react-router':
+      'rsbuild-plugin-react-router':
         specifier: workspace:*
         version: link:../../..
       '@sentry/node':

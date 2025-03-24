@@ -1,4 +1,4 @@
-# @rsbuild/plugin-react-router
+# rsbuild-plugin-react-router
 
 <p align="center">
   <a href="https://rsbuild.dev" target="blank"><img src="https://github.com/web-infra-dev/rsbuild/assets/7237365/84abc13e-b620-468f-a90b-dbf28e7e9427" alt="Rsbuild Logo" /></a>
@@ -19,11 +19,11 @@ A Rsbuild plugin that provides seamless integration with React Router, supportin
 ## Installation
 
 ```bash
-npm install @rsbuild/plugin-react-router
+npm install rsbuild-plugin-react-router
 # or
-yarn add @rsbuild/plugin-react-router
+yarn add rsbuild-plugin-react-router
 # or
-pnpm add @rsbuild/plugin-react-router
+pnpm add rsbuild-plugin-react-router
 ```
 
 ## Usage
@@ -32,7 +32,7 @@ Add the plugin to your `rsbuild.config.ts`:
 
 ```ts
 import { defineConfig } from '@rsbuild/core';
-import { pluginReactRouter } from '@rsbuild/plugin-react-router';
+import { pluginReactRouter } from 'rsbuild-plugin-react-router';
 import { pluginReact } from '@rsbuild/plugin-react';
 
 export default defineConfig(() => {
@@ -208,7 +208,7 @@ The plugin supports two ways to handle server-side rendering:
 ```ts
 // rsbuild.config.ts
 import { defineConfig } from '@rsbuild/core';
-import { pluginReactRouter } from '@rsbuild/plugin-react-router';
+import { pluginReactRouter } from 'rsbuild-plugin-react-router';
 import { pluginReact } from '@rsbuild/plugin-react';
 
 export default defineConfig(() => {
@@ -331,7 +331,7 @@ To deploy your React Router app to Cloudflare Workers:
 ```ts
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
-import { pluginReactRouter } from '@rsbuild/plugin-react-router';
+import { pluginReactRouter } from 'rsbuild-plugin-react-router';
 
 export default defineConfig({
   environments: {

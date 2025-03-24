@@ -1,7 +1,7 @@
 import { ModuleFederationPlugin } from '@module-federation/enhanced/rspack'
 import { defineConfig } from '@rsbuild/core'
 import { pluginReact } from '@rsbuild/plugin-react'
-import { pluginReactRouter } from '@rsbuild/plugin-react-router'
+import { pluginReactRouter } from 'rsbuild-plugin-react-router'
 import type { Compiler } from '@rspack/core'
 
 import 'react-router'
@@ -51,6 +51,7 @@ const exposedComponents = {
 	'./components/ui/button': './app/components/ui/button',
 	'./components/ui/checkbox': './app/components/ui/checkbox',
 	"./utils/connections": "./app/utils/connections",
+	"./utils/misc": "./app/utils/misc",
 }
 
 // Common Module Federation configuration

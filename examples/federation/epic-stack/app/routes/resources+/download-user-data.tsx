@@ -1,6 +1,6 @@
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getDomainUrl } from '#app/utils/misc.tsx'
+import { getDomainUrl } from 'remote/utils/misc'
 import { type Route } from './+types/download-user-data.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {

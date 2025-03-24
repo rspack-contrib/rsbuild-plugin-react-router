@@ -10,7 +10,7 @@ import { Spacer } from 'remote/components/spacer'
 import { Button } from 'remote/components/ui/button'
 import { Icon } from 'remote/components/ui/icon'
 import { prisma } from '#app/utils/db.server.ts'
-import { getUserImgSrc } from '#app/utils/misc.tsx'
+import { getUserImgSrc } from 'remote/utils/misc'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { type Route } from './+types/$username.ts'
 

@@ -6,7 +6,7 @@ import { Spacer } from 'remote/components/spacer'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { cn } from '#app/utils/misc.tsx'
+import { cn } from 'remote/utils/misc'
 import { useUser } from '#app/utils/user.ts'
 import { type Route } from './+types/profile.ts'
 

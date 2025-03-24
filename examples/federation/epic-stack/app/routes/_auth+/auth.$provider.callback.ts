@@ -7,7 +7,7 @@ import {
 import { ProviderNameSchema, providerLabels } from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { ensurePrimary } from '#app/utils/litefs.server.ts'
-import { combineHeaders } from '#app/utils/misc.tsx'
+import { combineHeaders } from 'remote/utils/misc'
 import {
 	normalizeEmail,
 	normalizeUsername,

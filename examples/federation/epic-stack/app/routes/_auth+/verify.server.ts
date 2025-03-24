@@ -6,7 +6,7 @@ import { handleVerification as handleChangeEmailVerification } from '#app/routes
 import { twoFAVerificationType } from '#app/routes/settings+/profile.two-factor.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getDomainUrl } from '#app/utils/misc.tsx'
+import { getDomainUrl } from 'remote/utils/misc'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { generateTOTP, verifyTOTP } from '#app/utils/totp.server.ts'
 import { type twoFAVerifyVerificationType } from '../settings+/profile.two-factor.verify.tsx'

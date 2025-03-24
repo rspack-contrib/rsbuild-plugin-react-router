@@ -19,4 +19,8 @@ export default {
 	},
 	presets: [marketingPreset],
 	plugins: [animatePlugin, radixPlugin],
+	safelist: [
+		// Match everything
+		/.*/
+	],
 } satisfies Config
