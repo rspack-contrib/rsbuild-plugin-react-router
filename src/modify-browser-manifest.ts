@@ -1,6 +1,7 @@
 import type { Route, PluginOptions } from './types.js';
 import type { Rspack } from '@rsbuild/core';
 import { getReactRouterManifestForDev } from './manifest.js';
+import jsesc from 'jsesc';
 
 /**
  * Creates a Webpack/Rspack plugin that modifies the browser manifest
@@ -34,7 +35,7 @@ export function createModifyBrowserManifestPlugin(
               .toString();
             const newSource = originalSource.replace(
               /["'`]PLACEHOLDER["'`]/,
-              JSON.stringify(manifest)
+              jsesc(manifest, { es6: true })
             );
             compilation.assets[manifestPath] = {
               source: () => newSource,
