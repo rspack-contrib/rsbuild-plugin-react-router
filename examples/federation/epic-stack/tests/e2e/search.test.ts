@@ -4,9 +4,11 @@ import { expect, test } from '#tests/playwright-utils.ts'
 test('Search from home page', async ({ page, insertNewUser }) => {
 	const newUser = await insertNewUser()
 	await page.goto('/')
+	await page.waitForTimeout(2000)
 
 	await page.getByRole('searchbox', { name: /search/i }).fill(newUser.username)
 	await page.getByRole('button', { name: /search/i }).click()
+	await page.waitForTimeout(2000)
 
 	await page.waitForURL(
 		`/users?${new URLSearchParams({ search: newUser.username })}`,
@@ -19,6 +21,7 @@ test('Search from home page', async ({ page, insertNewUser }) => {
 
 	await page.getByRole('searchbox', { name: /search/i }).fill('__nonexistent__')
 	await page.getByRole('button', { name: /search/i }).click()
+	await page.waitForTimeout(2000)
 	await page.waitForURL(`/users?search=__nonexistent__`)
 
 	await expect(userList.getByRole('listitem')).not.toBeVisible()

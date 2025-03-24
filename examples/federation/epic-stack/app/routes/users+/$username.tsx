@@ -5,15 +5,14 @@ import {
 	Link,
 	useLoaderData,
 } from 'react-router'
-import {Spacer} from 'remote/components/spacer';
 import { GeneralErrorBoundary } from 'remote/components/error-boundary'
+import { Spacer } from 'remote/components/spacer'
 import { Button } from 'remote/components/ui/button'
 import { Icon } from 'remote/components/ui/icon'
 import { prisma } from '#app/utils/db.server.ts'
 import { getUserImgSrc } from '#app/utils/misc.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
 import { type Route } from './+types/$username.ts'
-
 
 export async function loader({ params }: LoaderFunctionArgs) {
 	const user = await prisma.user.findFirst({

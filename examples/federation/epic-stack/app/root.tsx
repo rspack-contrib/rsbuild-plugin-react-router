@@ -13,14 +13,14 @@ import { HoneypotProvider } from 'remix-utils/honeypot/react'
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
-import { GeneralErrorBoundary } from 'remote/components/error-boundary'
-import { EpicProgress } from 'remote/components/progress-bar'
-import { SearchBar } from 'remote/components/search-bar'
-import { useToast } from 'remote/components/toaster'
-import { Button } from 'remote/components/ui/button'
-import { href as iconsHref } from 'remote/components/ui/icon'
-import { EpicToaster } from 'remote/components/ui/sonner'
-import { UserDropdown } from 'remote/components/user-dropdown'
+import { GeneralErrorBoundary } from './components/error-boundary.tsx'
+import { EpicProgress } from './components/progress-bar.tsx'
+import { SearchBar } from './components/search-bar.tsx'
+import { useToast } from './components/toaster.tsx'
+import { Button } from './components/ui/button.tsx'
+import { href as iconsHref } from './components/ui/icon.tsx'
+import { EpicToaster } from './components/ui/sonner.tsx'
+import { UserDropdown } from './components/user-dropdown.tsx'
 import {
 	ThemeSwitch,
 	useOptionalTheme,
@@ -40,7 +40,7 @@ import { makeTimings, time } from './utils/timing.server.ts'
 import { getToast } from './utils/toast.server.ts'
 import { useOptionalUser } from './utils/user.ts'
 import "./styles/tailwind.css"
-await new Promise((resolve) => {resolve(false)})
+
 export const links: Route.LinksFunction = () => {
 	return [
 		// Preload svg sprite as a resource to avoid render blocking

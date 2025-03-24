@@ -1,6 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { redirect, Link, useFetcher } from 'react-router'
-import { Icon } from 'remote/components/ui/icon'
+import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from 'remote/components/ui/status-button'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'

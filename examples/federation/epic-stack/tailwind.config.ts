@@ -17,6 +17,10 @@ export default {
 		},
 		extend: extendedTheme,
 	},
+	safelist: [
+		// Match everything
+		/.*/
+	],
 	presets: [marketingPreset],
 	plugins: [animatePlugin, radixPlugin],
 } satisfies Config

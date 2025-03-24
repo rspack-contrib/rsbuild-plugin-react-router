@@ -50,6 +50,8 @@ function generateAsyncTemplate(
     // Create a proxy for the entryServer exports
     const entryServer = new Proxy({}, {
       get: (target, prop) => {
+      
+      console.log(prop);
         if (entryServerModule) {
           return entryServerModule[prop];
         }
@@ -58,7 +60,7 @@ function generateAsyncTemplate(
           return createAsyncHandler(prop);
         }
         
-        return undefined;
+        return entryServerModule[prop];
       }
     });
 

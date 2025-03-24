@@ -10,6 +10,7 @@ const CODE_REGEX = /Here's your verification code: (?<code>[\d\w]+)/
 test('Users can update their basic info', async ({ page, login }) => {
 	await login()
 	await page.goto('/settings/profile')
+	await page.waitForTimeout(2000)
 
 	const newUserData = createUser()
 
@@ -19,6 +20,7 @@ test('Users can update their basic info', async ({ page, login }) => {
 		.fill(newUserData.username)
 
 	await page.getByRole('button', { name: /^save/i }).click()
+	await page.waitForTimeout(2000)
 })
 
 test('Users can update their password', async ({ page, login }) => {
@@ -26,8 +28,10 @@ test('Users can update their password', async ({ page, login }) => {
 	const newPassword = faker.internet.password()
 	const user = await login({ password: oldPassword })
 	await page.goto('/settings/profile')
+	await page.waitForTimeout(2000)
 
 	await page.getByRole('link', { name: /change password/i }).click()
+	await page.waitForTimeout(2000)
 
 	await page
 		.getByRole('textbox', { name: /^current password/i })
@@ -38,6 +42,7 @@ test('Users can update their password', async ({ page, login }) => {
 		.fill(newPassword)
 
 	await page.getByRole('button', { name: /^change password/i }).click()
+	await page.waitForTimeout(2000)
 
 	await expect(page).toHaveURL(`/settings/profile`)
 
@@ -55,12 +60,14 @@ test('Users can update their password', async ({ page, login }) => {
 test('Users can update their profile photo', async ({ page, login }) => {
 	const user = await login()
 	await page.goto('/settings/profile')
+	await page.waitForTimeout(2000)
 
 	const beforeSrc = await page
 		.getByRole('img', { name: user.name ?? user.username })
 		.getAttribute('src')
 
 	await page.getByRole('link', { name: /change profile photo/i }).click()
+	await page.waitForTimeout(2000)
 
 	await expect(page).toHaveURL(`/settings/profile/photo`)
 
@@ -69,6 +76,7 @@ test('Users can update their profile photo', async ({ page, login }) => {
 		.setInputFiles('./tests/fixtures/images/user/kody.png')
 
 	await page.getByRole('button', { name: /save/i }).click()
+	await page.waitForTimeout(2000)
 
 	await expect(
 		page,
@@ -87,9 +95,12 @@ test('Users can change their email address', async ({ page, login }) => {
 	const newEmailAddress = faker.internet.email().toLowerCase()
 	expect(preUpdateUser.email).not.toEqual(newEmailAddress)
 	await page.goto('/settings/profile')
+	await page.waitForTimeout(2000)
 	await page.getByRole('link', { name: /change email/i }).click()
+	await page.waitForTimeout(2000)
 	await page.getByRole('textbox', { name: /new email/i }).fill(newEmailAddress)
 	await page.getByRole('button', { name: /send confirmation/i }).click()
+	await page.waitForTimeout(2000)
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await waitFor(() => readEmail(newEmailAddress), {
 		errorMessage: 'Confirmation email was not sent',
@@ -100,6 +111,7 @@ test('Users can change their email address', async ({ page, login }) => {
 	invariant(code, 'Onboarding code not found')
 	await page.getByRole('textbox', { name: /code/i }).fill(code)
 	await page.getByRole('button', { name: /submit/i }).click()
+	await page.waitForTimeout(2000)
 	await expect(page.getByText(/email changed/i)).toBeVisible()
 
 	const updatedUser = await prisma.user.findUnique({
