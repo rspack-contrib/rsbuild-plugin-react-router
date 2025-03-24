@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "build": "rslib build",
-    "e2e": "pnpm build && cd examples/default-template; pnpm test:e2e",
+    "e2e": "pnpm build && cd examples/default-template && pnpm test:e2e && cd ../custom-node-server && pnpm test:e2e",
     "dev": "rslib build --watch",
     "test": "vitest run",
     "test:watch": "vitest watch",
