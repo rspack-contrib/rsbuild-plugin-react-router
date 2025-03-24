@@ -4,8 +4,8 @@
   "description": "React plugin for Rsbuild",
   "repository": {
     "type": "git",
-    "url": "https://github.com/web-infra-dev/rsbuild",
-    "directory": "packages/plugin-react"
+    "url": "git+https://github.com/rspack-contrib/rsbuild-plugin-react-router.git",
+    "directory": ""
   },
   "license": "MIT",
   "type": "module",
@@ -31,9 +31,12 @@
   "files": [
     "dist"
   ],
+  "publint": {
+    "ignoreMissingDts": true
+  },
   "scripts": {
     "build": "rslib build",
-    "e2e": "pnpm build && cd examples/default-template && pnpm test:e2e && npx kill-port 3000 && cd ../custom-node-server && pnpm test:e2e",
+    "e2e": "pnpm build && cd examples/default-template && pnpm test:e2e && npx kill-port 3000 3001 && cd ../custom-node-server && pnpm test:e2e",
     "dev": "rslib build --watch",
     "test": "vitest run",
     "test:watch": "vitest watch",

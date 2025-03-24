@@ -1,4 +1,4 @@
-name: E2E Tests
+name: Build Test
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  e2e-tests:
+  build-test:
     runs-on: ubuntu-latest
     
     steps:
@@ -40,6 +40,12 @@ jobs:
       
       - name: Install dependencies
         run: pnpm install
+
+      - name: Build package
+        run: pnpm build
+        
+      - name: Run publint
+        run: npx publint --errors-only
         
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
