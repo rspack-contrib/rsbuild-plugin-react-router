@@ -27,6 +27,12 @@ const sharedDependencies = {
 	'react-dom/': {
 		singleton: true,
 	},
+	"@prisma/client": {
+		singleton: true,
+	},
+	"remix-utils/": {
+		singleton: true,
+	}
 }
 
 // Common exposed components
@@ -52,7 +58,14 @@ const exposedComponents = {
 	'./components/ui/checkbox': './app/components/ui/checkbox',
 	"./utils/connections": "./app/utils/connections",
 	"./utils/misc": "./app/utils/misc",
+	"./routes/login": "./app/routes/_auth+/login?react-router-route",
+	"./routes/login.server": "./app/routes/_auth+/login.server"
 }
+
+// Filter out .server exposes for web environment
+const webExposedComponents = Object.fromEntries(
+	Object.entries(exposedComponents).filter(([_, value]) => !value.includes('.server'))
+)
 
 // Common Module Federation configuration
 const commonFederationConfig = {
@@ -69,6 +82,7 @@ const webFederationConfig = {
 	library: {
 		type: 'module'
 	},
+	exposes: webExposedComponents
 }
 
 // Node-specific federation config

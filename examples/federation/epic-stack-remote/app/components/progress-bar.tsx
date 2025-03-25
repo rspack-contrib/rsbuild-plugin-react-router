@@ -32,7 +32,7 @@ function EpicProgress() {
 			role="progressbar"
 			aria-hidden={delayedPending ? undefined : true}
 			aria-valuetext={delayedPending ? 'Loading' : undefined}
-			className="fixed inset-x-0 left-0 top-0 z-50 h-[0.20rem] animate-pulse"
+			className="fixed inset-x-0 left-0 top-0 z-50 h-[0.20rem] animate-pulse border-2 border-red-500"
 		>
 			<div
 				ref={ref}

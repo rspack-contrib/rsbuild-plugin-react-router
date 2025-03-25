@@ -27,7 +27,7 @@ export const StatusButton = React.forwardRef<
 		pending: delayedPending ? (
 			<div
 				role="status"
-				className="inline-flex h-6 w-6 items-center justify-center"
+				className="inline-flex h-6 w-6 items-center justify-center border-2 border-red-500"
 			>
 				<Icon name="update" className="animate-spin" title="loading" />
 			</div>
@@ -35,7 +35,7 @@ export const StatusButton = React.forwardRef<
 		success: (
 			<div
 				role="status"
-				className="inline-flex h-6 w-6 items-center justify-center"
+				className="inline-flex h-6 w-6 items-center justify-center border-2 border-red-500"
 			>
 				<Icon name="check" title="success" />
 			</div>
@@ -43,7 +43,7 @@ export const StatusButton = React.forwardRef<
 		error: (
 			<div
 				role="status"
-				className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-destructive"
+				className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-destructive border-2 border-red-500"
 			>
 				<Icon
 					name="cross-1"
@@ -61,7 +61,7 @@ export const StatusButton = React.forwardRef<
 			className={cn('flex justify-center gap-4', className)}
 			{...props}
 		>
-			<div>{children}</div>
+			<div className="border-2 border-red-500">{children}</div>
 			{message ? (
 				<TooltipProvider>
 					<Tooltip>

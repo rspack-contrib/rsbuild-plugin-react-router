@@ -16,6 +16,9 @@ const sharedDependencies = {
 	react: {
 		singleton: true,
 	},
+	"@prisma/client": {
+		singleton: true,
+	},
 	'react/': {
 		singleton: true,
 	},
@@ -25,6 +28,9 @@ const sharedDependencies = {
 	'react-dom/': {
 		singleton: true,
 	},
+	"remix-utils/": {
+		singleton: true,
+	}
 }
 
 // Common Module Federation configuration

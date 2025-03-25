@@ -13,7 +13,7 @@ import { type twoFAVerifyVerificationType } from '../settings+/profile.two-facto
 import {
 	handleVerification as handleLoginTwoFactorVerification,
 	shouldRequestTwoFA,
-} from './login.server.ts'
+} from 'remote/routes/login.server'
 import { handleVerification as handleOnboardingVerification } from './onboarding.server.ts'
 import { handleVerification as handleResetPasswordVerification } from './reset-password.server.ts'
 import {

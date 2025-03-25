@@ -23,7 +23,7 @@ const InputOTPGroup = React.forwardRef<
 	React.ElementRef<'div'>,
 	React.ComponentPropsWithoutRef<'div'>
 >(({ className, ...props }, ref) => (
-	<div ref={ref} className={cn('flex items-center', className)} {...props} />
+	<div ref={ref} className={cn('flex items-center border-2 border-red-500', className)} {...props} />
 ))
 InputOTPGroup.displayName = 'InputOTPGroup'
 
@@ -40,7 +40,7 @@ const InputOTPSlot = React.forwardRef<
 		<div
 			ref={ref}
 			className={cn(
-				'relative flex h-10 w-10 items-center justify-center border-y border-r border-input text-base transition-all first:rounded-l-md first:border-l last:rounded-r-md md:text-sm',
+				'relative flex h-10 w-10 items-center justify-center border-2 border-red-500 text-base transition-all first:rounded-l-md first:border-l last:rounded-r-md md:text-sm',
 				isActive && 'z-10 ring-2 ring-ring ring-offset-background',
 				className,
 			)}
@@ -61,7 +61,7 @@ const InputOTPSeparator = React.forwardRef<
 	React.ElementRef<'div'>,
 	React.ComponentPropsWithoutRef<'div'>
 >(({ ...props }, ref) => (
-	<div ref={ref} role="separator" {...props}>
+	<div ref={ref} role="separator" className="border-2 border-red-500" {...props}>
 		-
 	</div>
 ))
