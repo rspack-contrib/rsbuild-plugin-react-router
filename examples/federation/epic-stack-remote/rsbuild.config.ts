@@ -80,6 +80,14 @@ const nodeFederationConfig = {
 	runtimePlugins: [
 		'@module-federation/node/runtimePlugin'
 	],
+	// see https://github.com/module-federation/core/blob/main/packages/manifest/src/ManifestManager.ts#L106
+	manifest:{
+		additionalData:(additionalDataOptions)=>{
+			const { stats, } =additionalDataOptions;
+			stats.metaData.ssrRemoteEntry = stats.metaData.remoteEntry;
+			return stats;
+		}
+	}
 }
 
 export default defineConfig({
