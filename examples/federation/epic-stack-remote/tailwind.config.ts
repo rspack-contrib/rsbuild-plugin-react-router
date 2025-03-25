@@ -20,7 +20,7 @@ export default {
 	presets: [marketingPreset],
 	plugins: [animatePlugin, radixPlugin],
 	safelist: [
-		// Match everything
-		/.*/
+		// Using string pattern to match everything instead of RegExp
+		'*'
 	],
 } satisfies Config

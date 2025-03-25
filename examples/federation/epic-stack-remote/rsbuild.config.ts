@@ -59,7 +59,7 @@ const exposedComponents = {
 	"./utils/connections": "./app/utils/connections",
 	"./utils/misc": "./app/utils/misc",
 	"./routes/login": "./app/routes/_auth+/login?react-router-route",
-	"./routes/login.server": "./app/routes/_auth+/login.server"
+	"./routes/login.server": "./app/routes/_auth+/login.server.ts"
 }
 
 // Filter out .server exposes for web environment
@@ -73,7 +73,8 @@ const commonFederationConfig = {
 	shareStrategy: "loaded-first" as const,
 	runtime: undefined,
 	exposes: exposedComponents,
-	shared: sharedDependencies
+	shared: sharedDependencies,
+	dts: false
 }
 
 // Web-specific federation config
@@ -96,7 +97,7 @@ const nodeFederationConfig = {
 	],
 	// see https://github.com/module-federation/core/blob/main/packages/manifest/src/ManifestManager.ts#L106
 	manifest:{
-		additionalData:(additionalDataOptions)=>{
+		additionalData:(additionalDataOptions: { stats: any })=>{
 			const { stats, } =additionalDataOptions;
 			stats.metaData.ssrRemoteEntry = stats.metaData.remoteEntry;
 			return stats;

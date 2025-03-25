@@ -37,7 +37,8 @@ const sharedDependencies = {
 const commonFederationConfig = {
 	name: 'host',
 	shareStrategy: "loaded-first" as const,
-	shared: sharedDependencies
+	shared: sharedDependencies,
+	dts: false
 }
 
 // Web-specific federation config
@@ -52,7 +53,6 @@ const webFederationConfig = {
 // Node-specific federation config
 const nodeFederationConfig = {
 	...commonFederationConfig,
-	dts: false,
 	remotes: {
 		remote: 'remote@http://localhost:3001/static/static/js/remote.js',
 	},

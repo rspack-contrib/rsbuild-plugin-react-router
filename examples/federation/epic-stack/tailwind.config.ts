@@ -19,7 +19,7 @@ export default {
 	},
 	safelist: [
 		// Match everything
-		/.*/
+		"*"
 	],
 	presets: [marketingPreset],
 	plugins: [animatePlugin, radixPlugin],
