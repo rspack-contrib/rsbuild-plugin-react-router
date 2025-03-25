@@ -53,5 +53,5 @@ export function Spacer({
 		'4xl': 'h-44',
 	}
 	const className = options[size]
-	return <div className={className} />
+	return <div className={className + " border-2 border-red-500"} />
 }

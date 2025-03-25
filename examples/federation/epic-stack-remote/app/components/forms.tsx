@@ -24,7 +24,7 @@ export function ErrorList({
 	const errorsToRender = errors?.filter(Boolean)
 	if (!errorsToRender?.length) return null
 	return (
-		<ul id={id} className="flex flex-col gap-1">
+		<ul id={id} className="flex flex-col gap-1 border-2 border-red-500">
 			{errorsToRender.map((e) => (
 				<li key={e} className="text-[10px] text-foreground-destructive">
 					{e}
@@ -49,7 +49,7 @@ export function Field({
 	const id = inputProps.id ?? fallbackId
 	const errorId = errors?.length ? `${id}-error` : undefined
 	return (
-		<div className={className}>
+		<div className={className + " border-2 border-red-500"}>
 			<Label htmlFor={id} {...labelProps} />
 			<Input
 				id={id}
@@ -79,7 +79,7 @@ export function OTPField({
 	const id = inputProps.id ?? fallbackId
 	const errorId = errors?.length ? `${id}-error` : undefined
 	return (
-		<div className={className}>
+		<div className={className + " border-2 border-red-500"}>
 			<Label htmlFor={id} {...labelProps} />
 			<InputOTP
 				pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
@@ -123,7 +123,7 @@ export function TextareaField({
 	const id = textareaProps.id ?? textareaProps.name ?? fallbackId
 	const errorId = errors?.length ? `${id}-error` : undefined
 	return (
-		<div className={className}>
+		<div className={className + " border-2 border-red-500"}>
 			<Label htmlFor={id} {...labelProps} />
 			<Textarea
 				id={id}
@@ -166,7 +166,7 @@ export function CheckboxField({
 	const errorId = errors?.length ? `${id}-error` : undefined
 
 	return (
-		<div className={className}>
+		<div className={className + " border-2 border-red-500"}>
 			<div className="flex gap-2">
 				<Checkbox
 					{...checkboxProps}

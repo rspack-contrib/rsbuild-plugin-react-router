@@ -11,7 +11,9 @@ import {
 } from 'react-router'
 import { HoneypotProvider } from 'remix-utils/honeypot/react'
 import { type Route } from './+types/root.ts'
+//@ts-ignore
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
+//@ts-ignore
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { EpicProgress } from './components/progress-bar.tsx'

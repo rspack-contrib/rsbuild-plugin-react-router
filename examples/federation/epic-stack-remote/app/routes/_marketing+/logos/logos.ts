@@ -1,3 +1,5 @@
+//@ts-nocheck
+
 import docker from './docker.svg'
 import eslint from './eslint.svg'
 import fakerJS from './faker.svg'

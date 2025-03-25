@@ -16,6 +16,7 @@ export function UserDropdown() {
 	const user = useUser()
 	const formRef = useRef<HTMLFormElement>(null)
 	return (
+		<div className="border-2 border-red-500">
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button asChild variant="secondary">
@@ -64,5 +65,6 @@ export function UserDropdown() {
 				</DropdownMenuContent>
 			</DropdownMenuPortal>
 		</DropdownMenu>
+		</div>
 	)
 }
