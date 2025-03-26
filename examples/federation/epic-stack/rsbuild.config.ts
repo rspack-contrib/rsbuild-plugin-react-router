@@ -31,7 +31,10 @@ const sharedDependencies = {
 const commonFederationConfig = {
 	name: 'host',
 	shareStrategy: "loaded-first" as const,
-	shared: sharedDependencies
+	shared: sharedDependencies,
+	manifest: {
+		filePath: 'static'
+	},
 }
 
 // Web-specific federation config
@@ -39,7 +42,7 @@ const webFederationConfig = {
 	...commonFederationConfig,
 	remoteType: 'import' as const,
 	remotes: {
-		remote: 'http://localhost:3001/static/js/remote.js',
+		remote: 'http://localhost:3001/static/mf-manifest.json',
 	},
 }
 
@@ -48,7 +51,7 @@ const nodeFederationConfig = {
 	...commonFederationConfig,
 	dts: false,
 	remotes: {
-		remote: 'remote@http://localhost:3001/static/static/js/remote.js',
+		remote: 'remote@http://localhost:3001/static/static/mf-manifest.json',
 	},
 	runtimePlugins: ['@module-federation/node/runtimePlugin'],
 }
@@ -67,6 +70,11 @@ export default defineConfig({
 	},
 	environments: {
 		web: {
+			source: {
+				define: {
+					'process.env.WEB': 'true',
+				},
+			},
 			tools: {
 				rspack: {
 					plugins: [
@@ -77,6 +85,11 @@ export default defineConfig({
 			plugins: [],
 		},
 		node: {
+			source: {
+				define: {
+					'process.env.WEB': 'false',
+				},
+			},
 			tools: {
 				rspack: {
 					plugins: [
