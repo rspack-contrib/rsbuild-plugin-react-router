@@ -97,7 +97,7 @@ export const pluginReactRouter = (
         return {} as Config;
       });
 
-    const routesPath = resolve(appDirectory, 'routes.ts');
+    const routesPath = findEntryFile(resolve(appDirectory, 'routes'));
 
     // Then read the routes
     const routeConfig = await jiti
@@ -105,8 +105,8 @@ export const pluginReactRouter = (
         default: true,
       })
       .catch(error => {
-        console.error('Failed to load routes.ts:', error);
-        console.error('No routes.ts found in app directory.');
+        console.error('Failed to load routes file:', error);
+        console.error('No routes file found in app directory.');
         return [] as RouteConfigEntry[];
       });
 
