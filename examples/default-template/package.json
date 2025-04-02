@@ -5,7 +5,7 @@
   "scripts": {
     "build": "rsbuild build",
     "dev": "rsbuild dev",
-    "start": "react-router-serve ./build/server/index.js",
+    "start": "react-router-serve ./build/server/static/js/app.js",
     "typecheck": "react-router typegen && tsc",
     "test:e2e": "pnpm run dev & sleep 5 && playwright test",
     "test:e2e:debug": "playwright test --debug",
