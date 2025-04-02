@@ -286,7 +286,7 @@ export const pluginReactRouter = (
             },
             tools: {
               rspack: {
-                target: options.federation ? 'async-node' : undefined,
+                target: options.federation ? 'async-node' : 'node',
                 externals: ['express'],
                 dependencies: ['web'],
                 experiments: {
