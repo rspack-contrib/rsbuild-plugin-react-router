@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "rsbuild build",
-    "dev": "rsbuild dev",
+    "dev": "NODE_OPTIONS=--experimental-vm-modules rsbuild dev",
     "start:esm": "react-router-serve ./build/server/static/js/app.js",
     "start:cjs": "react-router-serve ./cjs-serve-patch.cjs",
     "typecheck": "react-router typegen && tsc",
