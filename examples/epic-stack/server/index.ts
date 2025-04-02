@@ -30,7 +30,6 @@ sourceMapSupport.install({
 	},
 })
 
-
 const MODE = process.env.NODE_ENV ?? 'development'
 const IS_PROD = MODE === 'production'
 const IS_DEV = MODE === 'development'

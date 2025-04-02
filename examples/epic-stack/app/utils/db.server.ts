@@ -1,5 +1,5 @@
 import { remember } from '@epic-web/remember'
-import {PrismaClient}  from '@prisma/client/index'
+import { PrismaClient } from '@prisma/client/index'
 
 import chalk from 'chalk'
 

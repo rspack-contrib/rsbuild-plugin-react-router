@@ -16,16 +16,15 @@ sourceMapSupport.install({
 	},
 })
 
-
 if (process.env.MOCKS === 'true') {
 	await import('./tests/mocks/index.ts')
 }
 
 if (process.env.NODE_ENV === 'production') {
-	let build = (await import('./build/server/static/js/app.js'))
-	build = build?.default || build;
+	let build = await import('./build/server/static/js/app.js')
+	build = build?.default || build
 	build = build?.createApp || build
-	build();
+	build()
 } else {
 	await import('./server/dev-build.js')
 }
