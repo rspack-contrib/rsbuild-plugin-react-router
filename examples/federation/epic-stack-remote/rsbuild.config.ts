@@ -58,9 +58,12 @@ const exposedComponents = {
 const commonFederationConfig = {
 	name: 'remote',
 	shareStrategy: "loaded-first" as const,
-	runtime: undefined,
+	runtime: false,
 	exposes: exposedComponents,
-	shared: sharedDependencies
+	shared: sharedDependencies,
+	manifest: {
+		filePath: 'static'
+	}
 }
 
 // Web-specific federation config
