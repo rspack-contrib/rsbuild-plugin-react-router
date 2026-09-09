@@ -167,9 +167,16 @@ type ReactRouterManifestStatsCompilation = {
   entrypoints?: ReactRouterManifestStatsLookup<ReactRouterManifestStatsEntrypoint>;
 };
 
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const orderChunkFiles = (chunkName: string, files: string[]): string[] => {
-  const ownChunkAsset = `${chunkName}.js`;
-  const ownFileIndex = files.findIndex(file => file.endsWith(ownChunkAsset));
+  // Match `<dir>/<chunkName>.js` as well as hashed variants such as
+  // `<chunkName>.abc12345.js` or `<chunkName>-abc12345.js`.
+  const ownChunkAsset = new RegExp(
+    `(?:^|/)${escapeRegExp(chunkName)}(?:[.-][^/]*)?\\.js$`
+  );
+  const ownFileIndex = files.findIndex(file => ownChunkAsset.test(file));
   if (ownFileIndex <= 0) {
     return files;
   }

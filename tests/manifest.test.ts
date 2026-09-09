@@ -107,6 +107,44 @@ describe('manifest', () => {
     });
   });
 
+  it('orders a content-hashed own chunk file first in manifest stats', () => {
+    const compilation = {
+      namedChunks: new Map([
+        [
+          'entry.client',
+          {
+            files: new Set([
+              'static/js/vendor.abc12345.js',
+              'static/js/entry.client.abc12345.js',
+            ]),
+          },
+        ],
+        [
+          'routes/page',
+          {
+            files: new Set([
+              'static/css/routes/page-abc12345.css',
+              'static/js/routes/page-abc12345.js',
+            ]),
+          },
+        ],
+      ]),
+    };
+
+    expect(createReactRouterManifestStats(compilation)).toEqual({
+      assetsByChunkName: {
+        'entry.client': [
+          'static/js/entry.client.abc12345.js',
+          'static/js/vendor.abc12345.js',
+        ],
+        'routes/page': [
+          'static/js/routes/page-abc12345.js',
+          'static/css/routes/page-abc12345.css',
+        ],
+      },
+    });
+  });
+
   it('skips missing named chunks while creating manifest stats', () => {
     const compilation = {
       namedChunks: new Map([

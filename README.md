@@ -341,7 +341,16 @@ Route components support the following exports:
 
 If you configure `output.assetPrefix` in Rsbuild, the plugin uses that value
 for the React Router browser manifest and server build `publicPath` so asset
-URLs resolve correctly when serving from a CDN or sub-path.
+URLs resolve correctly when serving from a CDN or sub-path. The web
+environment's own `output.assetPrefix` (for example
+`environments.web.output.assetPrefix: 'auto'`) takes precedence for the browser
+bundle and is passed through to Rspack untouched; the manifest and server build
+always use an absolute prefix, so `'auto'` is treated as `/` there.
+
+The plugin does not override `output.filename.js` or `output.publicPath` for
+the web environment. Production browser entries use Rsbuild's default
+content-hashed filenames, and any `output.filename` or `tools.rspack` output
+settings you configure take precedence over the plugin's defaults.
 
 ## Custom Server Setup
 

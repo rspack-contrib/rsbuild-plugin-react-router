@@ -222,8 +222,11 @@ export const pluginReactRouter = (
       warnOnClientSourceMaps(normalized, msg => api.logger.warn(msg), 'web');
     });
 
+    // The manifest / server `publicPath` follows the web environment's asset
+    // prefix (which inherits the root one) because that is where the browser
+    // assets are actually served from.
     api.onBeforeCreateCompiler(() => {
-      const normalized = api.getNormalizedConfig();
+      const normalized = api.getNormalizedConfig({ environment: 'web' });
       assetPrefix = resolveEffectiveAssetPrefix({
         dev: normalized.dev,
         output: normalized.output,
@@ -841,30 +844,38 @@ export const pluginReactRouter = (
       );
     };
 
+    const useAsyncNodeChunkLoading =
+      options.federation && resolvedServerOutput === 'commonjs';
+    let nodeChunkLoading: 'import' | 'async-node' | 'require' = 'require';
+    if (resolvedServerOutput === 'module') {
+      nodeChunkLoading = 'import';
+    } else if (useAsyncNodeChunkLoading) {
+      nodeChunkLoading = 'async-node';
+    }
+    // Set when the user configures web `output.filename.js`: Rsbuild derives the
+    // async chunk filename from it, so the plugin's own `chunkFilename` default
+    // must step aside to honor the user's naming scheme (#129).
+    let hasUserWebJsFilename = false;
+
     api.modifyRsbuildConfig(async (config, { mergeRsbuildConfig }) => {
-      // The RSC bootstrap script URL must reflect the user's web js distPath;
-      // the entry filename itself is deterministic because the plugin forces
-      // web `output.filename.js` to '[name].js' below.
-      const webDistPath = config.environments?.web?.output?.distPath;
+      const webConfig = config.environments?.web;
+      // Fallback location of the RSC browser entry when the RSC manifest does
+      // not report `entryJsFiles`; see `createReactRouterRscVirtualModules`.
+      const webDistPath = webConfig?.output?.distPath;
       const rootDistPath = config.output?.distPath;
       const jsDistPath =
         (typeof webDistPath === 'object' ? webDistPath.js : undefined) ??
         (typeof rootDistPath === 'object' ? rootDistPath.js : undefined) ??
         DEFAULT_JS_DIST_PATH;
+      hasUserWebJsFilename =
+        (webConfig?.output?.filename?.js ?? config.output?.filename?.js) !==
+        undefined;
       const assetPrefix = resolveEffectiveAssetPrefix({
-        dev: config.dev,
-        output: config.output,
+        dev: { ...config.dev, ...webConfig?.dev },
+        output: { ...config.output, ...webConfig?.output },
         isBuild,
       });
       const vmodPlugin = createVirtualModulePlugin(assetPrefix, jsDistPath);
-      const useAsyncNodeChunkLoading =
-        options.federation && resolvedServerOutput === 'commonjs';
-      let nodeChunkLoading: 'import' | 'async-node' | 'require' = 'require';
-      if (resolvedServerOutput === 'module') {
-        nodeChunkLoading = 'import';
-      } else if (useAsyncNodeChunkLoading) {
-        nodeChunkLoading = 'async-node';
-      }
       const configuredLazyCompilation = Object.prototype.hasOwnProperty.call(
         options,
         'lazyCompilation'
@@ -964,9 +975,6 @@ export const pluginReactRouter = (
                   }),
             },
             output: {
-              filename: {
-                js: '[name].js',
-              },
               distPath: {
                 root: outputClientPath,
               },
@@ -985,15 +993,6 @@ export const pluginReactRouter = (
                   ],
                 },
                 externalsType: modePlan.webExternalsType,
-                output: {
-                  ...modePlan.webOutput,
-                  publicPath: assetPrefix,
-                  ...(options.federation
-                    ? {
-                        chunkLoading: 'import',
-                      }
-                    : {}),
-                },
                 optimization: modePlan.webOptimization,
               },
             },
@@ -1038,22 +1037,48 @@ export const pluginReactRouter = (
                 externals: modePlan.nodeExternals,
                 ...modePlan.nodeDependencies,
                 externalsType: resolvedServerOutput,
-                output: {
-                  chunkFormat: resolvedServerOutput,
-                  chunkLoading: nodeChunkLoading,
-                  devtoolModuleFilenameTemplate: '[absolute-resource-path]',
-                  devtoolFallbackModuleFilenameTemplate:
-                    '[absolute-resource-path]?[hash]',
-                  workerChunkLoading: nodeChunkLoading,
-                  wasmLoading: 'fetch',
-                  module: resolvedServerOutput === 'module',
-                  chunkFilename: 'static/js/async/[name].js',
-                },
               },
             },
           },
         },
       });
+    });
+
+    // Rspack `output` defaults are applied here instead of through the merged
+    // `tools.rspack` object above: Rsbuild runs the user's `tools.rspack`
+    // (object or function form) after `modifyRspackConfig`, so user output
+    // settings such as `filename`, `chunkFilename`, or `publicPath` always win
+    // (#129, #130). `publicPath` is deliberately not set; Rsbuild derives it
+    // from the environment's `output.assetPrefix`, which keeps `'auto'` intact.
+    api.modifyRspackConfig((rspackConfig, { environment, mergeConfig }) => {
+      if (environment.name === 'web') {
+        const { chunkFilename, ...webOutput } = modePlan.webOutput;
+        return mergeConfig(rspackConfig, {
+          output: {
+            ...webOutput,
+            ...(chunkFilename !== undefined && !hasUserWebJsFilename
+              ? { chunkFilename }
+              : {}),
+            ...(options.federation ? { chunkLoading: 'import' } : {}),
+          },
+        });
+      }
+      if (environment.name === 'node') {
+        return mergeConfig(rspackConfig, {
+          output: {
+            chunkFormat: resolvedServerOutput,
+            chunkLoading: nodeChunkLoading,
+            devtoolModuleFilenameTemplate: '[absolute-resource-path]',
+            devtoolFallbackModuleFilenameTemplate:
+              '[absolute-resource-path]?[hash]',
+            workerChunkLoading: nodeChunkLoading,
+            wasmLoading: 'fetch',
+            module: resolvedServerOutput === 'module',
+            chunkFilename: 'static/js/async/[name].js',
+          },
+        });
+      }
+      return rspackConfig;
     });
 
     registerReactRouterEnvironmentOutput({

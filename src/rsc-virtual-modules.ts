@@ -84,7 +84,12 @@ export const createReactRouterRscVirtualModules = ({
     resolve(buildDirectory, 'server'),
     outputClientPath
   );
-  const bootstrapPublicPath = normalizeAssetPrefix(publicPath);
+  // Fallback only: the compiled browser entry name is not deterministic once
+  // the user (or Rsbuild's production default) content-hashes `filename.js`.
+  const fallbackBootstrapScript = combineURLs(
+    normalizeAssetPrefix(publicPath),
+    `${jsDistPath}/index.js`
+  );
 
   return {
     'virtual/react-router/unstable_rsc/routes': createRscRouteConfig({
@@ -111,9 +116,13 @@ export const createReactRouterRscVirtualModules = ({
         assetsBuildDirectory: rscAssetsBuildDirectory,
         publicPath,
       }),
-    'virtual/react-router/unstable_rsc/bootstrap-scripts': defaultExport([
-      combineURLs(bootstrapPublicPath, `${jsDistPath}/index.js`),
-    ]),
+    // The rspack RSC manifest records the compiled browser entry files, already
+    // prefixed with the web `publicPath` (like Next's `buildManifest` or the
+    // Vite plugin's `loadBootstrapScriptContent`), so hashed entry filenames
+    // and per-environment asset prefixes resolve without any naming contract.
+    'virtual/react-router/unstable_rsc/bootstrap-scripts': `const entryJsFiles = __webpack_require__.rscM?.entryJsFiles;
+export default entryJsFiles?.length ? entryJsFiles : ${JSON.stringify([fallbackBootstrapScript])};
+`,
     'virtual/react-router/unstable_rsc/server-manifest': `export default function getServerManifest() {
   return __webpack_require__.rscM?.serverManifest;
 }

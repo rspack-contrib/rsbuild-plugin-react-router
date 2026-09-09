@@ -65,9 +65,24 @@ describe('RSC support helpers', () => {
     });
 
     expect(modules['virtual/react-router/server-build']).toBeUndefined();
-    expect(
-      modules['virtual/react-router/unstable_rsc/bootstrap-scripts']
-    ).toContain('/assets/custom/js/index.js');
+    // Bootstrap scripts come from the rspack RSC manifest at runtime (so hashed
+    // entry filenames work); the computed path is only the fallback.
+    const bootstrapScripts =
+      modules['virtual/react-router/unstable_rsc/bootstrap-scripts'];
+    expect(bootstrapScripts).toContain('__webpack_require__.rscM?.entryJsFiles');
+    expect(bootstrapScripts).toContain('["/assets/custom/js/index.js"]');
+    const evaluate = (rscM: unknown) =>
+      new Function(
+        '__webpack_require__',
+        bootstrapScripts.replace('export default', 'return')
+      )({ rscM });
+    expect(evaluate({ entryJsFiles: ['/cdn/static/js/index.abc123.js'] })).toEqual(
+      ['/cdn/static/js/index.abc123.js']
+    );
+    expect(evaluate({ entryJsFiles: [] })).toEqual([
+      '/assets/custom/js/index.js',
+    ]);
+    expect(evaluate(undefined)).toEqual(['/assets/custom/js/index.js']);
     // The RSC HMR runtime only self-accepts; the single `rsc:update` navigate
     // handler now lives in the RSC client entry, not this virtual module.
     expect(

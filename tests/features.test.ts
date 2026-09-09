@@ -360,11 +360,9 @@ describe('pluginReactRouter', () => {
       });
 
       rsbuild.addPlugins([pluginReactRouter()]);
-      const config = await rsbuild.unwrapConfig();
+      const nodeRspack = await rsbuild.unwrapRspackConfig('node');
 
-      expect(
-        config.environments?.node?.tools?.rspack?.output?.chunkFilename
-      ).toBe('static/js/async/[name].js');
+      expect(nodeRspack.output.chunkFilename).toBe('static/js/async/[name].js');
     });
 
     it('should emit package.json for node environment', async () => {
