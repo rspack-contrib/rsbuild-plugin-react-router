@@ -69,16 +69,29 @@ describe('RSC support helpers', () => {
     // entry filenames work); the computed path is only the fallback.
     const bootstrapScripts =
       modules['virtual/react-router/unstable_rsc/bootstrap-scripts'];
-    expect(bootstrapScripts).toContain('__webpack_require__.rscM?.entryJsFiles');
     expect(bootstrapScripts).toContain('["/assets/custom/js/index.js"]');
     const evaluate = (rscM: unknown) =>
       new Function(
         '__webpack_require__',
         bootstrapScripts.replace('export default', 'return')
       )({ rscM });
-    expect(evaluate({ entryJsFiles: ['/cdn/static/js/index.abc123.js'] })).toEqual(
-      ['/cdn/static/js/index.abc123.js']
-    );
+    // Manifest entries already carry the prefix the server uses: pass through
+    // untouched, preserving the full list and its order.
+    expect(
+      evaluate({
+        entryJsFiles: ['/assets/static/js/index.abc123.js', '/assets/static/js/polyfill.js'],
+        moduleLoading: { prefix: '/assets/' },
+      })
+    ).toEqual(['/assets/static/js/index.abc123.js', '/assets/static/js/polyfill.js']);
+    // Browser compiler on 'auto' (rspack records `/`), server prefix differs:
+    // swap the applied prefix for the server prefix, never stack a second one.
+    expect(
+      evaluate({
+        entryJsFiles: ['/static/js/index.abc123.js'],
+        moduleLoading: { prefix: '/' },
+      })
+    ).toEqual(['/assets/static/js/index.abc123.js']);
+    // Missing manifest data falls back to the computed entry path.
     expect(evaluate({ entryJsFiles: [] })).toEqual([
       '/assets/custom/js/index.js',
     ]);

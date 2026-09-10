@@ -7,6 +7,7 @@ import {
   generateReactRouterManifestForDev,
   getReactRouterManifestChunkNames,
   getReactRouterManifestPath,
+  isManifestJsAsset,
   type ReactRouterManifestForDev as ReactRouterManifest,
   type RouteChunkManifestOptions,
   type RouteManifestModuleExports,
@@ -83,7 +84,7 @@ const addIntegrity = (
 ) => {
   if (
     typeof assetName !== 'string' ||
-    !assetName.endsWith('.js') ||
+    !isManifestJsAsset(assetName) ||
     typeof integrity !== 'string'
   ) {
     return;
@@ -117,7 +118,7 @@ export const collectSubresourceIntegrity = (
     const assets =
       compilation.getAssets() as readonly CompilationAssetWithIntegrity[];
     for (const asset of assets) {
-      if (!asset.name.endsWith('.js')) {
+      if (!isManifestJsAsset(asset.name)) {
         continue;
       }
       addIntegrity(
@@ -200,8 +201,7 @@ export function registerModifyBrowserManifestAssets(
 
     if (isBuild) {
       const entryAssets = stats?.assetsByChunkName?.['entry.client'];
-      const entryJsAssets =
-        entryAssets?.filter(asset => asset.endsWith('.js')) || [];
+      const entryJsAssets = entryAssets?.filter(isManifestJsAsset) || [];
       const manifestPath = getReactRouterManifestPath({
         version: manifest.version,
         isBuild: true,

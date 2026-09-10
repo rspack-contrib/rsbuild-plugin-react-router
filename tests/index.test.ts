@@ -5,11 +5,13 @@ import * as fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { rspack } from '@rsbuild/core';
 import {
   pluginReactRouter,
   pluginReactRouterRSC,
   shouldParallelizeEnvironmentBuilds,
 } from '../src';
+import { getVirtualModuleFilePath } from '../src/virtual-modules';
 
 type ReactRouterTestGlobal = typeof globalThis & {
   __reactRouterTestConfig?: unknown;
@@ -457,10 +459,12 @@ describe('pluginReactRouter', () => {
       mangleExports: 'size',
       usedExports: 'global',
     });
+    // Async chunk names are Rsbuild's to derive from `output.filename` /
+    // `filenameHash` / `distPath.jsAsync`; the plugin sets none (#129).
     const webRspack = await rsbuild.unwrapRspackConfig('web');
-    expect(webRspack.output.chunkFilename).toBe(
-      'static/js/async/[id]-[contenthash:16].js'
-    );
+    expect(webRspack.output.chunkFilename).toBeUndefined();
+    expect(webRspack.output.filename).toBeUndefined();
+    expect(webRspack.output.publicPath).toBeUndefined();
   });
 
   it('keeps classic development export names and chunk names', async () => {
@@ -482,7 +486,7 @@ describe('pluginReactRouter', () => {
   });
 
   // https://github.com/rstackjs/rsbuild-plugin-react-router/issues/129
-  it('does not force web output.filename.js and yields chunkFilename to a user filename', async () => {
+  it('does not force web output.filename.js over a user filename', async () => {
     const rsbuild = await createStubRsbuild({
       action: 'build',
       rsbuildConfig: {
@@ -498,9 +502,8 @@ describe('pluginReactRouter', () => {
     expect(config.environments.web.output.filename.js).toBe(
       '[name]-[contenthash:8].js'
     );
-    // Rsbuild derives the async chunk name from `filename.js`; the plugin's
-    // `[id]-[contenthash:16]` default must not override the user's scheme.
     const webRspack = await rsbuild.unwrapRspackConfig('web');
+    expect(webRspack.output.filename).toBeUndefined();
     expect(webRspack.output.chunkFilename).toBeUndefined();
   });
 
@@ -556,6 +559,41 @@ describe('pluginReactRouter', () => {
 
     expect(webRspack.output.publicPath).toBeUndefined();
     expect(config.environments.web.output.assetPrefix).toBe('auto');
+  });
+
+  // Browser compiler on 'auto', server needs a usable absolute prefix: the
+  // root CDN prefix must survive rather than being folded into '/'.
+  it('falls back to the root asset prefix for server URLs when web is auto', async () => {
+    const rsbuild = await createStubRsbuild({
+      action: 'build',
+      rsbuildConfig: {
+        output: { assetPrefix: 'https://cdn.example.com/app/' },
+        environments: { web: { output: { assetPrefix: 'auto' } } },
+      },
+    });
+
+    rsbuild.addPlugins([pluginReactRouter()]);
+    const config = await rsbuild.unwrapConfig();
+
+    const virtualModulePlugin = (config.tools?.rspack?.plugins || []).find(
+      (p: any) => p.constructor.name === 'VirtualModulesPlugin'
+    );
+    const compiler = {
+      context: '/virtual/project',
+      hooks: { afterEnvironment: { tap: (_n: string, h: () => void) => h() } },
+    } as any;
+    virtualModulePlugin.apply(compiler);
+    const serverBuildPath = join(
+      compiler.context,
+      getVirtualModuleFilePath('virtual/react-router/server-build')
+    );
+    const serverBuild = rspack.experiments.VirtualModulesPlugin.__internal__take_virtual_files(
+      compiler
+    )?.find(file => file.path === serverBuildPath);
+
+    expect(serverBuild?.content).toContain(
+      'export const publicPath = "https://cdn.example.com/app/";'
+    );
   });
 
   it('preserves production export names for RSC builds', async () => {
@@ -1123,5 +1161,27 @@ describe('pluginReactRouter', () => {
 
     const nodeConfig = config.environments?.node?.tools?.rspack;
     expect(nodeConfig.target).toBe('async-node');
+  });
+
+  it('applies federation chunk loading through modifyRspackConfig', async () => {
+    const rsbuild = await createStubRsbuild({ rsbuildConfig: {} });
+
+    rsbuild.addPlugins([
+      pluginReactRouter({ federation: true, serverOutput: 'commonjs' }),
+    ]);
+    const webRspack = await rsbuild.unwrapRspackConfig('web');
+    const nodeRspack = await rsbuild.unwrapRspackConfig('node');
+
+    // Remote containers are loaded as ES modules in the browser...
+    expect(webRspack.output.chunkLoading).toBe('import');
+    expect(webRspack.output.chunkFormat).toBe('module');
+    // ...and asynchronously on the CommonJS server. (The stub's base config
+    // plays a user `tools.rspack` that pins node `chunkLoading`, which must win
+    // over the hook, so assert the sibling the stub leaves alone.)
+    expect(nodeRspack.output.workerChunkLoading).toBe('async-node');
+    expect(nodeRspack.output.chunkFormat).toBe('commonjs');
+    // Filenames stay Rsbuild's: a federation remote names its container via
+    // ModuleFederationPlugin `filename`, not by the plugin forcing `[name].js`.
+    expect(webRspack.output.filename).toBeUndefined();
   });
 });

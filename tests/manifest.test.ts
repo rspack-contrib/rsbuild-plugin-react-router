@@ -9,6 +9,8 @@ import {
   generateReactRouterManifestForDev,
   getReactRouterManifestForDev,
   getReactRouterManifestChunkNames,
+  isManifestCssAsset,
+  isManifestJsAsset,
 } from '../src/manifest';
 
 const createTempApp = (routeCode: string) => {
@@ -107,42 +109,18 @@ describe('manifest', () => {
     });
   });
 
-  it('orders a content-hashed own chunk file first in manifest stats', () => {
-    const compilation = {
-      namedChunks: new Map([
-        [
-          'entry.client',
-          {
-            files: new Set([
-              'static/js/vendor.abc12345.js',
-              'static/js/entry.client.abc12345.js',
-            ]),
-          },
-        ],
-        [
-          'routes/page',
-          {
-            files: new Set([
-              'static/css/routes/page-abc12345.css',
-              'static/js/routes/page-abc12345.js',
-            ]),
-          },
-        ],
-      ]),
-    };
-
-    expect(createReactRouterManifestStats(compilation)).toEqual({
-      assetsByChunkName: {
-        'entry.client': [
-          'static/js/entry.client.abc12345.js',
-          'static/js/vendor.abc12345.js',
-        ],
-        'routes/page': [
-          'static/js/routes/page-abc12345.js',
-          'static/css/routes/page-abc12345.css',
-        ],
-      },
-    });
+  it('classifies manifest assets by pathname regardless of filename scheme', () => {
+    // Query-hash filenames keep their query in the emitted reference.
+    expect(isManifestJsAsset('static/js/entry.client.js?v=abc12345')).toBe(true);
+    expect(isManifestJsAsset('static/js/abc12345.js')).toBe(true);
+    expect(isManifestJsAsset('static/js/abc12345-root.js')).toBe(true);
+    expect(isManifestCssAsset('static/css/root.css?v=abc12345')).toBe(true);
+    // HMR update files are recorded on `chunk.files` but are never the module.
+    expect(isManifestJsAsset('static/js/root.abc12345.hot-update.js')).toBe(
+      false
+    );
+    expect(isManifestJsAsset('static/js/root.js.map')).toBe(false);
+    expect(isManifestJsAsset('static/css/root.css')).toBe(false);
   });
 
   it('skips missing named chunks while creating manifest stats', () => {
@@ -577,6 +555,59 @@ describe('manifest', () => {
       expect(manifest.entry.module).toBe('/static/js/entry.client.js');
       expect(manifest.entry.imports).toEqual(['/static/js/shared.js']);
       expect(manifest.entry.imports).not.toContain(manifest.entry.module);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps user filename schemes (query hash, hash-first) as manifest module URLs', async () => {
+    const { root, appDir } = createTempApp(`
+      export default function Page() { return null; }
+    `);
+    try {
+      // `[name].js?v=[contenthash:8]` for the entry, `[contenthash:8]-[name].js`
+      // for routes: neither ends in `.js`-as-named, and neither may fall back
+      // to the assumed `static/js/<chunk>.js`.
+      const stats = {
+        assetsByChunkName: {
+          'entry.client': [
+            'static/js/entry.client.js?v=1a2b3c4d',
+            'static/js/entry.client.abc.hot-update.js',
+            'static/css/entry.client.css?v=1a2b3c4d',
+          ],
+          root: ['static/js/9f8e7d6c-root.js'],
+          'routes/page': ['static/js/0a1b2c3d-page.js'],
+        },
+        entrypointFilesByName: {
+          'entry.client': [
+            'static/js/runtime.js?v=deadbeef',
+            'static/js/entry.client.js?v=1a2b3c4d',
+          ],
+        },
+      };
+
+      const { manifest } = await generateReactRouterManifestForDev(
+        routes,
+        {},
+        stats,
+        appDir,
+        '/',
+        { isBuild: true, rootRouteFile: 'root.tsx', splitRouteModules: false }
+      );
+
+      expect(manifest.entry.module).toBe(
+        '/static/js/entry.client.js?v=1a2b3c4d'
+      );
+      expect(manifest.entry.imports).toEqual([
+        '/static/js/runtime.js?v=deadbeef',
+      ]);
+      expect(manifest.entry.css).toEqual([
+        '/static/css/entry.client.css?v=1a2b3c4d',
+      ]);
+      expect(manifest.routes.root.module).toBe('/static/js/9f8e7d6c-root.js');
+      expect(manifest.routes['routes/page'].module).toBe(
+        '/static/js/0a1b2c3d-page.js'
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

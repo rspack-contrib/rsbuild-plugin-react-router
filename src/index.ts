@@ -223,15 +223,21 @@ export const pluginReactRouter = (
     });
 
     // The manifest / server `publicPath` follows the web environment's asset
-    // prefix (which inherits the root one) because that is where the browser
-    // assets are actually served from.
+    // prefix because that is where the browser assets are served from. A web
+    // prefix the server cannot use (`'auto'`) falls back to the root prefix,
+    // so `output.assetPrefix: 'https://cdn/'` + web `'auto'` still emits CDN
+    // URLs from the server.
     api.onBeforeCreateCompiler(() => {
-      const normalized = api.getNormalizedConfig({ environment: 'web' });
-      assetPrefix = resolveEffectiveAssetPrefix({
-        dev: normalized.dev,
-        output: normalized.output,
-        isBuild: api.context.action === 'build',
-      });
+      const web = api.getNormalizedConfig({ environment: 'web' });
+      const root = api.getNormalizedConfig();
+      assetPrefix = resolveEffectiveAssetPrefix(
+        {
+          dev: web.dev,
+          output: web.output,
+          isBuild: api.context.action === 'build',
+        },
+        { dev: root.dev, output: root.output }
+      );
     });
 
     const configPath = findEntryFile(resolve('react-router.config'));
@@ -844,19 +850,12 @@ export const pluginReactRouter = (
       );
     };
 
-    const useAsyncNodeChunkLoading =
-      options.federation && resolvedServerOutput === 'commonjs';
-    let nodeChunkLoading: 'import' | 'async-node' | 'require' = 'require';
-    if (resolvedServerOutput === 'module') {
-      nodeChunkLoading = 'import';
-    } else if (useAsyncNodeChunkLoading) {
-      nodeChunkLoading = 'async-node';
-    }
-    // Set when the user configures web `output.filename.js`: Rsbuild derives the
-    // async chunk filename from it, so the plugin's own `chunkFilename` default
-    // must step aside to honor the user's naming scheme (#129).
-    let hasUserWebJsFilename = false;
-
+    const nodeChunkLoading =
+      resolvedServerOutput === 'module'
+        ? 'import'
+        : options.federation
+          ? 'async-node'
+          : 'require';
     api.modifyRsbuildConfig(async (config, { mergeRsbuildConfig }) => {
       const webConfig = config.environments?.web;
       // Fallback location of the RSC browser entry when the RSC manifest does
@@ -867,14 +866,10 @@ export const pluginReactRouter = (
         (typeof webDistPath === 'object' ? webDistPath.js : undefined) ??
         (typeof rootDistPath === 'object' ? rootDistPath.js : undefined) ??
         DEFAULT_JS_DIST_PATH;
-      hasUserWebJsFilename =
-        (webConfig?.output?.filename?.js ?? config.output?.filename?.js) !==
-        undefined;
-      const assetPrefix = resolveEffectiveAssetPrefix({
-        dev: { ...config.dev, ...webConfig?.dev },
-        output: { ...config.output, ...webConfig?.output },
-        isBuild,
-      });
+      const assetPrefix = resolveEffectiveAssetPrefix(
+        { dev: webConfig?.dev, output: webConfig?.output, isBuild },
+        { dev: config.dev, output: config.output }
+      );
       const vmodPlugin = createVirtualModulePlugin(assetPrefix, jsDistPath);
       const configuredLazyCompilation = Object.prototype.hasOwnProperty.call(
         options,
@@ -1047,18 +1042,15 @@ export const pluginReactRouter = (
     // Rspack `output` defaults are applied here instead of through the merged
     // `tools.rspack` object above: Rsbuild runs the user's `tools.rspack`
     // (object or function form) after `modifyRspackConfig`, so user output
-    // settings such as `filename`, `chunkFilename`, or `publicPath` always win
-    // (#129, #130). `publicPath` is deliberately not set; Rsbuild derives it
-    // from the environment's `output.assetPrefix`, which keeps `'auto'` intact.
+    // settings such as `chunkFilename` take precedence over these defaults
+    // (#129, #130). Neither `filename` nor `publicPath` is set: Rsbuild derives
+    // them from `output.filename`/`output.filenameHash`/`output.distPath` and
+    // the environment's `output.assetPrefix`, which keeps `'auto'` intact.
     api.modifyRspackConfig((rspackConfig, { environment, mergeConfig }) => {
       if (environment.name === 'web') {
-        const { chunkFilename, ...webOutput } = modePlan.webOutput;
         return mergeConfig(rspackConfig, {
           output: {
-            ...webOutput,
-            ...(chunkFilename !== undefined && !hasUserWebJsFilename
-              ? { chunkFilename }
-              : {}),
+            ...modePlan.webOutput,
             ...(options.federation ? { chunkLoading: 'import' } : {}),
           },
         });

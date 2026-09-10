@@ -349,11 +349,9 @@ const createClassicModePlan = async ({
       wasmLoading: 'fetch',
       library: { type: 'module' },
       module: true,
-      // Async chunks are addressed by id at runtime, so the chunk name only
-      // adds bytes to the filename and to every place that references it.
-      ...(isBuild
-        ? { chunkFilename: 'static/js/async/[id]-[contenthash:16].js' }
-        : {}),
+      // Async chunk filenames are left to Rsbuild, which derives them from
+      // `output.filename.js`, `output.filenameHash`, and `distPath.jsAsync`,
+      // so user configuration governs every JavaScript filename (#129).
     },
     webOptimization: {
       avoidEntryIife: true,

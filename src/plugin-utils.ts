@@ -79,34 +79,48 @@ export function normalizeAssetPrefix(assetPrefix?: string): string {
   return assetPrefix.endsWith('/') ? assetPrefix : `${assetPrefix}/`;
 }
 
-/**
- * Resolve the asset prefix Rsbuild applies to emitted asset URLs for the given
- * mode. In development the effective prefix is `dev.assetPrefix` (which Rsbuild
- * defaults from `server.base`, falling back to `output.assetPrefix`); in a
- * production build it is `output.assetPrefix`. Both fields are already resolved
- * on the normalized config, so this mirrors Rsbuild's own precedence rather than
- * re-deriving it from `server.base`.
- *
- * `dev.assetPrefix` may be a boolean on the raw config (`false` disables it);
- * boolean/`'auto'`/empty values normalize to the root prefix `'/'`.
- */
-export function resolveEffectiveAssetPrefix(config: {
+type AssetPrefixConfig = {
   dev?: { assetPrefix?: unknown };
   output?: { assetPrefix?: unknown };
-  isBuild: boolean;
-}): string {
-  const outputPrefix =
-    typeof config.output?.assetPrefix === 'string'
-      ? config.output.assetPrefix
-      : undefined;
-  if (config.isBuild) {
-    return normalizeAssetPrefix(outputPrefix);
+};
+
+const asString = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined;
+
+const pickConfiguredAssetPrefix = (
+  { dev, output }: AssetPrefixConfig,
+  isBuild: boolean
+): string | undefined =>
+  isBuild
+    ? asString(output?.assetPrefix)
+    : (asString(dev?.assetPrefix) ?? asString(output?.assetPrefix));
+
+/**
+ * Resolve the absolute asset prefix the server build and browser manifest use
+ * for asset URLs. In development the effective prefix is `dev.assetPrefix`
+ * (which Rsbuild defaults from `server.base`, falling back to
+ * `output.assetPrefix`); in a production build it is `output.assetPrefix`.
+ *
+ * `fallbacks` are consulted in order (e.g. the root config after the web
+ * environment) when the preceding config only offers a prefix the server
+ * cannot use: `'auto'` and empty values are browser-runtime-only, so a root
+ * CDN prefix must survive a web `'auto'`. The choice happens before
+ * normalization so that `'auto'` is not first folded into `'/'`.
+ *
+ * `dev.assetPrefix` may be a boolean on the raw config (`false` disables it);
+ * boolean/`'auto'`/empty values ultimately normalize to the root prefix `'/'`.
+ */
+export function resolveEffectiveAssetPrefix(
+  config: AssetPrefixConfig & { isBuild: boolean },
+  ...fallbacks: AssetPrefixConfig[]
+): string {
+  for (const candidate of [config, ...fallbacks]) {
+    const prefix = pickConfiguredAssetPrefix(candidate, config.isBuild);
+    if (prefix && prefix !== 'auto') {
+      return normalizeAssetPrefix(prefix);
+    }
   }
-  const devPrefix =
-    typeof config.dev?.assetPrefix === 'string'
-      ? config.dev.assetPrefix
-      : undefined;
-  return normalizeAssetPrefix(devPrefix ?? outputPrefix);
+  return '/';
 }
 
 export function createRouteId(file: string): string {

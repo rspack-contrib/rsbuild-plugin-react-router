@@ -84,10 +84,14 @@ export const createReactRouterRscVirtualModules = ({
     resolve(buildDirectory, 'server'),
     outputClientPath
   );
+  // Absolute prefix the server must use for initial asset URLs (see
+  // `resolveEffectiveAssetPrefix`); the browser compiler may itself be on
+  // `'auto'`, which no server-rendered URL can express.
+  const serverPublicPath = normalizeAssetPrefix(publicPath);
   // Fallback only: the compiled browser entry name is not deterministic once
   // the user (or Rsbuild's production default) content-hashes `filename.js`.
   const fallbackBootstrapScript = combineURLs(
-    normalizeAssetPrefix(publicPath),
+    serverPublicPath,
     `${jsDistPath}/index.js`
   );
 
@@ -116,12 +120,26 @@ export const createReactRouterRscVirtualModules = ({
         assetsBuildDirectory: rscAssetsBuildDirectory,
         publicPath,
       }),
-    // The rspack RSC manifest records the compiled browser entry files, already
-    // prefixed with the web `publicPath` (like Next's `buildManifest` or the
-    // Vite plugin's `loadBootstrapScriptContent`), so hashed entry filenames
-    // and per-environment asset prefixes resolve without any naming contract.
-    'virtual/react-router/unstable_rsc/bootstrap-scripts': `const entryJsFiles = __webpack_require__.rscM?.entryJsFiles;
-export default entryJsFiles?.length ? entryJsFiles : ${JSON.stringify([fallbackBootstrapScript])};
+    // The rspack RSC manifest records the compiled browser entry files (like
+    // Next's `buildManifest` or the Vite plugin's `loadBootstrapScriptContent`),
+    // already prefixed with the prefix it reports in `moduleLoading.prefix`, so
+    // hashed entry filenames resolve without any naming contract. When that
+    // applied prefix differs from the server prefix (the browser compiler is on
+    // `'auto'`, which rspack records as `/`), swap it for the server prefix
+    // instead of stacking a second one; the list and its order are preserved.
+    'virtual/react-router/unstable_rsc/bootstrap-scripts': `const manifest = __webpack_require__.rscM;
+const entryJsFiles = manifest?.entryJsFiles;
+const appliedPrefix = manifest?.moduleLoading?.prefix;
+const serverPrefix = ${JSON.stringify(serverPublicPath)};
+export default !entryJsFiles?.length
+  ? ${JSON.stringify([fallbackBootstrapScript])}
+  : appliedPrefix && appliedPrefix !== serverPrefix
+    ? entryJsFiles.map(file =>
+        file.startsWith(appliedPrefix)
+          ? serverPrefix + file.slice(appliedPrefix.length)
+          : file
+      )
+    : entryJsFiles;
 `,
     'virtual/react-router/unstable_rsc/server-manifest': `export default function getServerManifest() {
   return __webpack_require__.rscM?.serverManifest;

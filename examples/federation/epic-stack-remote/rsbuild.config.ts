@@ -76,6 +76,9 @@ const webFederationConfig = {
 		asyncStartup: true,
 	},
 	dts: false,
+	// The host loads the container from this fixed URL, so name it explicitly.
+	// Every other browser chunk keeps Rsbuild's content hash.
+	filename: 'static/js/remote.js',
 	library: {
 		type: 'module'
 	},
