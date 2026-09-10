@@ -36,10 +36,7 @@ type CommonModePlan = {
   manifestChunkNames: Set<string>;
   webEntries: Record<string, string | RsbuildEntryDescription>;
   nodeEntries: Record<string, string | RsbuildEntryDescription>;
-  createVirtualModules(
-    publicPath: string,
-    jsDistPath: string
-  ): Record<string, string>;
+  createVirtualModules(publicPath: string): Record<string, string>;
   createResolveConfig(rootPath: string): Rspack.Configuration['resolve'];
   server: RsbuildConfig['server'] | undefined;
   webExternalsType: 'module' | undefined;
@@ -183,14 +180,13 @@ const createRscModePlan = async ({
         layer: RSC_LAYERS.rsc,
       },
     },
-    createVirtualModules: (publicPath: string, jsDistPath: string) =>
+    createVirtualModules: (publicPath: string) =>
       createReactRouterRscVirtualModules({
         allowedActionOrigins: allowedActionOriginsForBuild,
         appDirectory,
         basename,
         buildDirectory,
         isBuild,
-        jsDistPath,
         outputClientPath,
         publicPath,
         routeDiscovery,
@@ -314,7 +310,7 @@ const createClassicModePlan = async ({
       defaultEntryName,
       serverBundleEntries: artifacts.serverBundleEntries,
     }),
-    createVirtualModules: (publicPath: string, _jsDistPath: string) =>
+    createVirtualModules: (publicPath: string) =>
       createClassicVirtualModules({
         allowedActionOrigins: allowedActionOriginsForBuild,
         appDirectory,
@@ -349,11 +345,9 @@ const createClassicModePlan = async ({
       wasmLoading: 'fetch',
       library: { type: 'module' },
       module: true,
-      // Async chunks are addressed by id at runtime, so the chunk name only
-      // adds bytes to the filename and to every place that references it.
-      ...(isBuild
-        ? { chunkFilename: 'static/js/async/[id]-[contenthash:16].js' }
-        : {}),
+      // Async chunk filenames are left to Rsbuild, which derives them from
+      // `output.filename.js`, `output.filenameHash`, and `distPath.jsAsync`,
+      // so user configuration governs every JavaScript filename (#129).
     },
     webOptimization: {
       avoidEntryIife: true,

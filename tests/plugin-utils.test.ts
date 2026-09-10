@@ -169,6 +169,65 @@ describe('plugin-utils', () => {
         resolveEffectiveAssetPrefix({ dev: {}, output: {}, isBuild: false })
       ).toBe('/');
     });
+
+    // The web environment is the primary source; the root config is the
+    // fallback, consulted before 'auto' is normalized away (#130).
+    it('prefers the web environment prefix over the root prefix', () => {
+      expect(
+        resolveEffectiveAssetPrefix(
+          { output: { assetPrefix: 'https://cdn.example.com/' }, isBuild: true },
+          { output: { assetPrefix: '/root/' } }
+        )
+      ).toBe('https://cdn.example.com/');
+    });
+
+    it('falls back to the root prefix when the web prefix is auto', () => {
+      expect(
+        resolveEffectiveAssetPrefix(
+          { output: { assetPrefix: 'auto' }, isBuild: true },
+          { output: { assetPrefix: 'https://cdn.example.com/app' } }
+        )
+      ).toBe('https://cdn.example.com/app/');
+      expect(
+        resolveEffectiveAssetPrefix(
+          { output: { assetPrefix: 'auto' }, isBuild: true },
+          { output: { assetPrefix: '/app/' } }
+        )
+      ).toBe('/app/');
+    });
+
+    it('falls back to the root prefix when the web prefix is empty or unset', () => {
+      expect(
+        resolveEffectiveAssetPrefix(
+          { output: { assetPrefix: '' }, isBuild: true },
+          { output: { assetPrefix: '/app/' } }
+        )
+      ).toBe('/app/');
+      expect(
+        resolveEffectiveAssetPrefix(
+          { output: {}, isBuild: true },
+          { output: { assetPrefix: '/app/' } }
+        )
+      ).toBe('/app/');
+    });
+
+    it('resolves to root when web and root are both auto', () => {
+      expect(
+        resolveEffectiveAssetPrefix(
+          { output: { assetPrefix: 'auto' }, isBuild: true },
+          { output: { assetPrefix: 'auto' } }
+        )
+      ).toBe('/');
+    });
+
+    it('applies the fallback chain to dev.assetPrefix in dev mode', () => {
+      expect(
+        resolveEffectiveAssetPrefix(
+          { dev: { assetPrefix: 'auto' }, output: {}, isBuild: false },
+          { dev: { assetPrefix: '/dev-root/' }, output: { assetPrefix: '/cdn' } }
+        )
+      ).toBe('/dev-root/');
+    });
   });
 
   describe('transformRoute', () => {

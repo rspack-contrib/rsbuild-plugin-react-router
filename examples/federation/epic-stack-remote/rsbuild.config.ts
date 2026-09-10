@@ -76,6 +76,9 @@ const webFederationConfig = {
 		asyncStartup: true,
 	},
 	dts: false,
+	// The host loads the container from this fixed URL, so name it explicitly.
+	// Every other browser chunk keeps Rsbuild's content hash.
+	filename: 'static/js/remote.js',
 	library: {
 		type: 'module'
 	},
@@ -88,6 +91,10 @@ const nodeFederationConfig = {
 		asyncStartup: true,
 	},
 	dts: false,
+	// The server build is published under the client build's `static/` (see the
+	// plugin's federation copy), so the host loads this container from
+	// `<origin>/static/static/js/remote.js`.
+	filename: 'static/js/remote.js',
 	library: {
 		type: 'commonjs-module'
 	},
@@ -121,6 +128,12 @@ export default defineConfig({
 				define: {
 					WEB: 'true'
 				}
+			},
+			output: {
+				// The browser runtime derives its asset base from the script it was
+				// loaded from, so the same build works wherever the host fetches the
+				// container from. Server-rendered URLs keep REMOTE_ASSET_PREFIX.
+				assetPrefix: 'auto',
 			},
 			tools: {
 				rspack: {

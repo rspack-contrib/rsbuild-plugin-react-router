@@ -167,19 +167,17 @@ type ReactRouterManifestStatsCompilation = {
   entrypoints?: ReactRouterManifestStatsLookup<ReactRouterManifestStatsEntrypoint>;
 };
 
-const orderChunkFiles = (chunkName: string, files: string[]): string[] => {
-  const ownChunkAsset = `${chunkName}.js`;
-  const ownFileIndex = files.findIndex(file => file.endsWith(ownChunkAsset));
-  if (ownFileIndex <= 0) {
-    return files;
-  }
+// Emitted asset names may carry a query (`output.filename.js:
+// '[name].js?v=[contenthash:8]'`); classify on the pathname but keep the full
+// reference, since the query is part of the URL the browser must request.
+// A chunk's own script is whatever JavaScript the compilation rendered for it,
+// regardless of `output.filename` scheme. In development, HMR update files are
+// also recorded on `chunk.files`; they are never the module to load.
+export const isManifestJsAsset = (asset: string): boolean =>
+  /(?<!\.hot-update)\.[cm]?js(?:\?.*)?$/.test(asset);
 
-  return [
-    files[ownFileIndex],
-    ...files.slice(0, ownFileIndex),
-    ...files.slice(ownFileIndex + 1),
-  ];
-};
+export const isManifestCssAsset = (asset: string): boolean =>
+  /\.css(?:\?.*)?$/.test(asset);
 
 const collectManifestFilesByName = <T>(
   items: ReactRouterManifestStatsLookup<T>,
@@ -241,8 +239,7 @@ export const createReactRouterManifestStats = (
   const assetsByChunkName = collectManifestFilesByName(
     compilation.namedChunks,
     chunkNames,
-    (chunkName, chunk) =>
-      orderChunkFiles(chunkName, Array.from(chunk.files ?? []))
+    (_chunkName, chunk) => Array.from(chunk.files ?? [])
   );
   const entrypointFilesByName = compilation.entrypoints
     ? collectManifestFilesByName(
@@ -303,22 +300,31 @@ const createChunkAssetResolver = (
 
     const cssAssets = new Set<string>();
     const jsAssets = new Set<string>();
+    // The chunk's own files come first so `js[0]` is the route module itself;
+    // entrypoint files (runtime, shared vendor chunks) follow as `imports`.
     for (const asset of assets) {
-      if (asset.endsWith('.css')) {
+      if (isManifestCssAsset(asset)) {
         cssAssets.add(asset);
-      } else if (asset.endsWith('.js')) {
+      } else if (isManifestJsAsset(asset)) {
         jsAssets.add(asset);
       }
     }
     for (const asset of clientStats?.entrypointFilesByName?.[chunkName] ?? []) {
-      if (asset.endsWith('.css')) {
+      if (isManifestCssAsset(asset)) {
         cssAssets.add(asset);
-      } else if (includeEntrypointJs && asset.endsWith('.js')) {
+      } else if (includeEntrypointJs && isManifestJsAsset(asset)) {
         jsAssets.add(asset);
       }
     }
     if (jsAssets.size === 0) {
-      jsAssets.add(`${DEFAULT_MANIFEST_DIR}/${chunkName}.js`);
+      // Compilation metadata exists for this chunk but names no module script.
+      // Guessing `<dir>/<chunk>.js` here would turn an identifiable build
+      // problem into a browser 404, so surface it at build time instead.
+      throw new Error(
+        `[react-router] Chunk "${chunkName}" emitted no JavaScript asset the browser manifest can reference (files: ${
+          assets.join(', ') || 'none'
+        }). Check the web \`output.filename.js\` scheme.`
+      );
     }
 
     const result = { js: [...jsAssets], css: [...cssAssets] };

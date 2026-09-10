@@ -56,8 +56,11 @@ test.describe("Route entry names", () => {
 
     expect(emitted.filter(leaking)).toEqual([]);
 
-    // The route chunk must be a sibling of the route entry itself.
-    expect(emitted).toContain("static/js/routes/customers-client-loader.js");
+    // The route chunk must be a sibling of the route entry itself, and carry
+    // Rsbuild's production content hash: the plugin must not force
+    // `output.filename.js` back to `[name].js` (#129).
+    const routeChunkFile = /^static[/\\]js[/\\]routes[/\\]customers-client-loader\.[a-f0-9]{8,}\.js$/;
+    expect(emitted.filter((file) => routeChunkFile.test(file))).toHaveLength(1);
 
     let manifestFile = emitted.find((file) =>
       /static[/\\]js[/\\]manifest-[^/\\]+\.js$/.test(file),
@@ -77,7 +80,11 @@ test.describe("Route entry names", () => {
     expect(assetUrls.filter(leaking)).toEqual([]);
     // An entry name starting with `/` produced a `/static/js//...` double slash.
     expect(assetUrls.filter((url) => url.includes("//"))).toEqual([]);
-    expect(assetUrls).toContain("/static/js/routes/customers-client-loader.js");
+    expect(
+      assetUrls.filter((url) =>
+        /^\/static\/js\/routes\/customers-client-loader\.[a-f0-9]{8,}\.js$/.test(url),
+      ),
+    ).toHaveLength(1);
 
     // The route id itself stays absolute: it is the runtime contract behind
     // `useRouteLoaderData(id)` and `matches[].id`, and must not be sanitized.

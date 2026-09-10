@@ -47,8 +47,8 @@ test.describe('SPA Mode', () => {
       const indexPath = join(CLIENT_DIR, 'index.html');
       const html = readFileSync(indexPath, 'utf-8');
 
-      // Should have entry.client.js for hydration
-      expect(html).toContain('entry.client.js');
+      // Should have the content-hashed entry.client bundle for hydration
+      expect(html).toMatch(/\/static\/js\/entry\.client\.[a-f0-9]{8,}\.js/);
     });
   });
 

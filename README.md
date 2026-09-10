@@ -343,6 +343,28 @@ If you configure `output.assetPrefix` in Rsbuild, the plugin uses that value
 for the React Router browser manifest and server build `publicPath` so asset
 URLs resolve correctly when serving from a CDN or sub-path.
 
+The web environment's own `output.assetPrefix` is passed through to the browser
+compiler untouched, so `environments.web.output.assetPrefix: 'auto'` lets the
+browser runtime resolve async chunks and stylesheets relative to the loaded
+script. The server build and browser manifest need an absolute prefix: they use
+the web environment's prefix when it is usable and otherwise fall back to the
+root `output.assetPrefix`. A common CDN setup is therefore:
+
+```ts
+export default defineConfig({
+  output: { assetPrefix: 'https://cdn.example.com/app/' }, // server-rendered URLs
+  environments: {
+    web: { output: { assetPrefix: 'auto' } }, // browser runtime resolves itself
+  },
+});
+```
+
+The plugin does not set `output.filename`, `chunkFilename`, or `publicPath`
+for the web environment. Production browser entries use Rsbuild's default
+content-hashed filenames, and `output.filename`, `output.filenameHash`,
+`output.distPath`, and `tools.rspack` output settings you configure govern
+the emitted files and the manifest URLs that reference them.
+
 ## Custom Server Setup
 
 The plugin supports two ways to handle server-side rendering:

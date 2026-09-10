@@ -167,6 +167,7 @@ rstest.mock('@scripts/test-helper', () => ({
       getNormalizedConfig: rstest.fn().mockImplementation(() => mergedConfig),
       isPluginExists: rstest.fn().mockReturnValue(false),
       modifyRsbuildConfig: rstest.fn(),
+      modifyRspackConfig: rstest.fn(),
       modifyBundlerChain: rstest.fn(),
       onAfterEnvironmentCompile: rstest.fn(),
       // Keep as a spy-only hook; tests in this repo assert against the merged
@@ -222,10 +223,22 @@ rstest.mock('@scripts/test-helper', () => ({
       }
     });
 
+    // Hooks register (and push their promises) while `setup` is still running,
+    // so drain `pending` until no new work appears; otherwise a rejected
+    // config hook would go unobserved.
+    const settlePending = async () => {
+      let settled = 0;
+      while (settled < pending.length) {
+        const batch = pending.slice(settled);
+        settled = pending.length;
+        await Promise.all(batch);
+      }
+    };
     stub.unwrapConfig.mockImplementation(async () => {
-      await Promise.all(pending);
+      await settlePending();
       return mergedConfig;
     });
+
 
     return stub;
   }),

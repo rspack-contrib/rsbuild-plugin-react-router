@@ -6,11 +6,7 @@ import { rspack, type RsbuildPlugin, type Rspack } from '@rsbuild/core';
 import { relative, resolve } from 'pathe';
 
 import { getDefaultConcurrency } from './concurrency.js';
-import {
-  DEFAULT_JS_DIST_PATH,
-  JS_EXTENSIONS,
-  PLUGIN_NAME,
-} from './constants.js';
+import { JS_EXTENSIONS, PLUGIN_NAME } from './constants.js';
 import { guardReactRouterLazyCompilation } from './lazy-compilation.js';
 import {
   findEntryFile,
@@ -222,13 +218,25 @@ export const pluginReactRouter = (
       warnOnClientSourceMaps(normalized, msg => api.logger.warn(msg), 'web');
     });
 
+    // The manifest / server `publicPath` follows the web environment's asset
+    // prefix because that is where the browser assets are served from. A web
+    // prefix the server cannot use (`'auto'`) falls back to the root prefix,
+    // so `output.assetPrefix: 'https://cdn/'` + web `'auto'` still emits CDN
+    // URLs from the server.
     api.onBeforeCreateCompiler(() => {
-      const normalized = api.getNormalizedConfig();
-      assetPrefix = resolveEffectiveAssetPrefix({
-        dev: normalized.dev,
-        output: normalized.output,
-        isBuild: api.context.action === 'build',
-      });
+      const root = api.getNormalizedConfig();
+      // `getNormalizedConfig({ environment: 'web' })` throws when the build was
+      // narrowed to other environments (`--environment node`), so look the web
+      // environment up on the root config instead.
+      const web = root.environments.web;
+      assetPrefix = resolveEffectiveAssetPrefix(
+        {
+          dev: web?.dev,
+          output: web?.output,
+          isBuild: api.context.action === 'build',
+        },
+        { dev: root.dev, output: root.output }
+      );
     });
 
     const configPath = findEntryFile(resolve('react-router.config'));
@@ -832,39 +840,35 @@ export const pluginReactRouter = (
     }
 
     // Public requests stay bare while Rspack resolves seeded virtual files.
-    const createVirtualModulePlugin = (
-      publicPath: string,
-      jsDistPath: string
-    ) => {
+    const createVirtualModulePlugin = (publicPath: string) => {
       return new rspack.experiments.VirtualModulesPlugin(
-        mapVirtualModules(modePlan.createVirtualModules(publicPath, jsDistPath))
+        mapVirtualModules(modePlan.createVirtualModules(publicPath))
       );
     };
 
     api.modifyRsbuildConfig(async (config, { mergeRsbuildConfig }) => {
-      // The RSC bootstrap script URL must reflect the user's web js distPath;
-      // the entry filename itself is deterministic because the plugin forces
-      // web `output.filename.js` to '[name].js' below.
-      const webDistPath = config.environments?.web?.output?.distPath;
-      const rootDistPath = config.output?.distPath;
-      const jsDistPath =
-        (typeof webDistPath === 'object' ? webDistPath.js : undefined) ??
-        (typeof rootDistPath === 'object' ? rootDistPath.js : undefined) ??
-        DEFAULT_JS_DIST_PATH;
-      const assetPrefix = resolveEffectiveAssetPrefix({
-        dev: config.dev,
-        output: config.output,
-        isBuild,
-      });
-      const vmodPlugin = createVirtualModulePlugin(assetPrefix, jsDistPath);
-      const useAsyncNodeChunkLoading =
-        options.federation && resolvedServerOutput === 'commonjs';
-      let nodeChunkLoading: 'import' | 'async-node' | 'require' = 'require';
-      if (resolvedServerOutput === 'module') {
-        nodeChunkLoading = 'import';
-      } else if (useAsyncNodeChunkLoading) {
-        nodeChunkLoading = 'async-node';
+      const webConfig = config.environments?.web;
+      const webJsFilename =
+        webConfig?.output?.filename?.js ?? config.output?.filename?.js;
+      // Rspack's RSC manifest only records browser entry files named `*.js`
+      // (`entryJsFiles`), and the server renders its bootstrap scripts from
+      // that list. Reject filename schemes it would silently drop up front.
+      if (
+        isRscMode &&
+        typeof webJsFilename === 'string' &&
+        !/\.js$/.test(webJsFilename)
+      ) {
+        throw new Error(
+          `[${PLUGIN_NAME}] RSC mode requires web \`output.filename.js\` to end in ".js" (got ${JSON.stringify(
+            webJsFilename
+          )}): rspack's RSC manifest omits entry files with a query or another extension, so the server could not render bootstrap scripts.`
+        );
       }
+      const assetPrefix = resolveEffectiveAssetPrefix(
+        { dev: webConfig?.dev, output: webConfig?.output, isBuild },
+        { dev: config.dev, output: config.output }
+      );
+      const vmodPlugin = createVirtualModulePlugin(assetPrefix);
       const configuredLazyCompilation = Object.prototype.hasOwnProperty.call(
         options,
         'lazyCompilation'
@@ -964,9 +968,6 @@ export const pluginReactRouter = (
                   }),
             },
             output: {
-              filename: {
-                js: '[name].js',
-              },
               distPath: {
                 root: outputClientPath,
               },
@@ -985,15 +986,6 @@ export const pluginReactRouter = (
                   ],
                 },
                 externalsType: modePlan.webExternalsType,
-                output: {
-                  ...modePlan.webOutput,
-                  publicPath: assetPrefix,
-                  ...(options.federation
-                    ? {
-                        chunkLoading: 'import',
-                      }
-                    : {}),
-                },
                 optimization: modePlan.webOptimization,
               },
             },
@@ -1038,17 +1030,6 @@ export const pluginReactRouter = (
                 externals: modePlan.nodeExternals,
                 ...modePlan.nodeDependencies,
                 externalsType: resolvedServerOutput,
-                output: {
-                  chunkFormat: resolvedServerOutput,
-                  chunkLoading: nodeChunkLoading,
-                  devtoolModuleFilenameTemplate: '[absolute-resource-path]',
-                  devtoolFallbackModuleFilenameTemplate:
-                    '[absolute-resource-path]?[hash]',
-                  workerChunkLoading: nodeChunkLoading,
-                  wasmLoading: 'fetch',
-                  module: resolvedServerOutput === 'module',
-                  chunkFilename: 'static/js/async/[name].js',
-                },
               },
             },
           },
@@ -1060,6 +1041,7 @@ export const pluginReactRouter = (
       api,
       federation: pluginOptions.federation,
       resolvedServerOutput,
+      webOutput: modePlan.webOutput,
     });
 
     if (modePlan.kind === 'classic' && useRouteModuleTransformLoader) {

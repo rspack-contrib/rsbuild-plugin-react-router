@@ -5,11 +5,13 @@ import * as fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { rspack } from '@rsbuild/core';
 import {
   pluginReactRouter,
   pluginReactRouterRSC,
   shouldParallelizeEnvironmentBuilds,
 } from '../src';
+import { getVirtualModuleFilePath } from '../src/virtual-modules';
 
 type ReactRouterTestGlobal = typeof globalThis & {
   __reactRouterTestConfig?: unknown;
@@ -435,14 +437,46 @@ describe('pluginReactRouter', () => {
     expect(config.environments.node.tools.rspack.dependencies).toBeUndefined();
     expect(config.environments.web.output.target).toBe('web');
     expect(
-      config.environments.web.tools.rspack.output.workerChunkLoading
-    ).toBe('import-scripts');
-    expect(
       config.environments.web.tools.rspack.optimization.usedExports
     ).toBeUndefined();
     expect(
       config.environments.web.tools.rspack.optimization.mangleExports
     ).toBeUndefined();
+  });
+
+  it('rejects web filename schemes the rspack RSC manifest would drop', async () => {
+    const rsbuild = await createStubRsbuild({
+      action: 'build',
+      rsbuildConfig: {
+        environments: {
+          web: { output: { filename: { js: '[name].js?v=[contenthash:8]' } } },
+        },
+      },
+    });
+
+    rsbuild.addPlugins([pluginReactRouter({ rsc: true })]);
+
+    await expect(rsbuild.unwrapConfig()).rejects.toThrow(
+      /RSC mode requires web `output.filename.js` to end in "\.js"/
+    );
+  });
+
+  it('accepts hashed .js web filenames in RSC mode', async () => {
+    const rsbuild = await createStubRsbuild({
+      action: 'build',
+      rsbuildConfig: {
+        environments: {
+          web: { output: { filename: { js: '[contenthash:8]-[name].js' } } },
+        },
+      },
+    });
+
+    rsbuild.addPlugins([pluginReactRouter({ rsc: true })]);
+    const config = await rsbuild.unwrapConfig();
+
+    expect(config.environments.web.output.filename.js).toBe(
+      '[contenthash:8]-[name].js'
+    );
   });
 
   it('shrinks classic production browser output', async () => {
@@ -458,9 +492,6 @@ describe('pluginReactRouter', () => {
       mangleExports: 'size',
       usedExports: 'global',
     });
-    expect(config.environments.web.tools.rspack.output.chunkFilename).toBe(
-      'static/js/async/[id]-[contenthash:16].js'
-    );
   });
 
   it('keeps classic development export names and chunk names', async () => {
@@ -477,9 +508,94 @@ describe('pluginReactRouter', () => {
     expect(
       config.environments.web.tools.rspack.optimization.usedExports
     ).toBeUndefined();
+  });
+
+  // https://github.com/rstackjs/rsbuild-plugin-react-router/issues/129
+  it('does not force web output.filename.js over a user filename', async () => {
+    const rsbuild = await createStubRsbuild({
+      action: 'build',
+      rsbuildConfig: {
+        environments: {
+          web: { output: { filename: { js: '[name]-[contenthash:8].js' } } },
+        },
+      },
+    });
+
+    rsbuild.addPlugins([pluginReactRouter()]);
+    const config = await rsbuild.unwrapConfig();
+
+    expect(config.environments.web.output.filename.js).toBe(
+      '[name]-[contenthash:8].js'
+    );
+  });
+
+  it('leaves web output.filename.js to Rsbuild defaults when unset', async () => {
+    const rsbuild = await createStubRsbuild({
+      action: 'build',
+      rsbuildConfig: {},
+    });
+
+    rsbuild.addPlugins([pluginReactRouter()]);
+    const config = await rsbuild.unwrapConfig();
+
+    expect(config.environments.web.output?.filename?.js).toBeUndefined();
+    expect(config.output?.filename?.js).toBeUndefined();
+  });
+
+  // https://github.com/rstackjs/rsbuild-plugin-react-router/issues/130
+  it('does not copy the asset prefix onto web output.publicPath', async () => {
+    const rsbuild = await createStubRsbuild({
+      action: 'build',
+      rsbuildConfig: {
+        output: { assetPrefix: '/' },
+        environments: { web: { output: { assetPrefix: 'auto' } } },
+      },
+    });
+
+    rsbuild.addPlugins([pluginReactRouter()]);
+    const config = await rsbuild.unwrapConfig();
+
+    // Nothing in the merged web config pins a publicPath; the real-Rsbuild
+    // output test asserts the final compiler sees 'auto'.
     expect(
-      config.environments.web.tools.rspack.output.chunkFilename
+      config.environments.web.tools?.rspack?.output?.publicPath
     ).toBeUndefined();
+    expect(config.environments.web.output.assetPrefix).toBe('auto');
+  });
+
+  // Browser compiler on 'auto', server needs a usable absolute prefix: the
+  // root CDN prefix must survive rather than being folded into '/'.
+  it('falls back to the root asset prefix for server URLs when web is auto', async () => {
+    const rsbuild = await createStubRsbuild({
+      action: 'build',
+      rsbuildConfig: {
+        output: { assetPrefix: 'https://cdn.example.com/app/' },
+        environments: { web: { output: { assetPrefix: 'auto' } } },
+      },
+    });
+
+    rsbuild.addPlugins([pluginReactRouter()]);
+    const config = await rsbuild.unwrapConfig();
+
+    const virtualModulePlugin = (config.tools?.rspack?.plugins || []).find(
+      (p: any) => p.constructor.name === 'VirtualModulesPlugin'
+    );
+    const compiler = {
+      context: '/virtual/project',
+      hooks: { afterEnvironment: { tap: (_n: string, h: () => void) => h() } },
+    } as any;
+    virtualModulePlugin.apply(compiler);
+    const serverBuildPath = join(
+      compiler.context,
+      getVirtualModuleFilePath('virtual/react-router/server-build')
+    );
+    const serverBuild = rspack.experiments.VirtualModulesPlugin.__internal__take_virtual_files(
+      compiler
+    )?.find(file => file.path === serverBuildPath);
+
+    expect(serverBuild?.content).toContain(
+      'export const publicPath = "https://cdn.example.com/app/";'
+    );
   });
 
   it('preserves production export names for RSC builds', async () => {
@@ -979,12 +1095,6 @@ describe('pluginReactRouter', () => {
     const nodeConfig = config.environments?.node?.tools?.rspack;
     expect(nodeConfig.externals).toContain('express');
     expect(nodeConfig.experiments.outputModule).toBe(true);
-    expect(nodeConfig.output.devtoolModuleFilenameTemplate).toBe(
-      '[absolute-resource-path]'
-    );
-    expect(nodeConfig.output.devtoolFallbackModuleFilenameTemplate).toBe(
-      '[absolute-resource-path]?[hash]'
-    );
   });
 
   it('should apply the resolved development compiler dependency policy', async () => {
@@ -1047,4 +1157,5 @@ describe('pluginReactRouter', () => {
     const nodeConfig = config.environments?.node?.tools?.rspack;
     expect(nodeConfig.target).toBe('async-node');
   });
+
 });
