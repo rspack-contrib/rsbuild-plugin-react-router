@@ -81,6 +81,14 @@ export async function createApp(devServer?: any) {
 	// http://expressjs.com/en/advanced/best-practice-security.html#at-a-minimum-disable-x-powered-by-header
 	app.disable('x-powered-by')
 
+	// The host loads this remote's container and the ES modules it imports
+	// cross-origin (`remoteType: 'import'`), which requires CORS on every asset
+	// response. Set it before any static handler.
+	app.use((_req, res, next) => {
+		res.setHeader('Access-Control-Allow-Origin', '*')
+		next()
+	})
+
 	if (IS_DEV) {
 		// use rsbuild dev server
 		if (devServer) {
@@ -97,6 +105,15 @@ export async function createApp(devServer?: any) {
 		// more aggressive with this caching.
 		app.use(express.static('build/client', { maxAge: '1h' }))
 		app.use('/server', express.static('build/server', { maxAge: '1h' }))
+		// The host's Node federation runtime resolves this remote's server chunks
+		// against the node compiler's publicPath (`REMOTE_ASSET_PREFIX`), i.e.
+		// `<origin>/static/js/async/<chunk>.js`, not against the container URL.
+		// Publish the server async chunks there as well. Client async chunks are
+		// content-hashed, so the two trees do not collide.
+		app.use(
+			'/static/js/async',
+			express.static('build/server/static/js/async', { maxAge: '1h' }),
+		)
 	}
 
 	app.get(/^\/(img|favicons)\//, ((

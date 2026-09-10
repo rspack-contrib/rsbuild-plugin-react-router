@@ -32,5 +32,18 @@ Respect user web output settings instead of overriding them (#129, #130).
   container URL; the federation example does this now.
 - RSC framework mode reads the browser bootstrap scripts from the rspack RSC
   manifest (`entryJsFiles`, in order) instead of assuming `index.js`. When the
-  prefix rspack applied differs from the server prefix (browser compiler on
-  `'auto'`), it is swapped rather than stacked.
+  browser compiler is on `'auto'`, rspack records `/` as the manifest prefix;
+  the plugin aligns the manifest once, in place, with the server prefix, so
+  bootstrap scripts, route stylesheets, client-reference stylesheets, and
+  Flight's preload prefix agree. An empty `entryJsFiles` is an explicit error,
+  and RSC mode rejects web `output.filename.js` values that do not end in
+  `.js` (rspack's collector drops them) at config time.
+- Browser-manifest assets are classified by pathname (`.js`/`.mjs`/`.cjs`, with
+  or without a query); a chunk whose metadata names no script fails the build
+  instead of guessing a filename.
+- `onBeforeCreateCompiler` no longer asks Rsbuild for the `web` environment's
+  normalized config, which throws when the build is narrowed to other
+  environments (`--environment node`).
+- Federation example: the remote now serves its assets with CORS, names both
+  containers explicitly, publishes its server async chunks where the Node
+  federation runtime resolves them, and puts the browser compiler on `'auto'`.

@@ -25,6 +25,8 @@
   },
   "devDependencies": {
     "@mdx-js/rollup": "^3.1.1",
+    "@module-federation/enhanced": "2.5.1",
+    "@module-federation/node": "2.7.44",
     "@react-router/dev": "^8.3.1",
     "@react-router/fs-routes": "^8.3.1",
     "@react-router/remix-routes-option-adapter": "^8.3.1",
