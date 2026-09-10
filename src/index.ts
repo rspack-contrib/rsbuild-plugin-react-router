@@ -26,6 +26,7 @@ import {
   type ResolvedReactRouterConfig,
 } from './react-router-config.js';
 import {
+  collectUnsupportedRscScriptAssets,
   configRoutesToRouteManifest,
   createReactRouterManifestStats,
   type ReactRouterManifestForDev as ReactRouterManifest,
@@ -773,6 +774,27 @@ export const pluginReactRouter = (
           stats?.compilation,
           manifestChunkNames
         );
+        if (isRscMode && stats) {
+          // Rspack's RSC manifest only records browser scripts whose emitted
+          // name ends in ".js" (entry files and client-reference chunks
+          // alike); anything else silently disappears from `entryJsFiles` and
+          // the client manifest, and the server cannot bootstrap or preload
+          // it. Check the emitted output, which is what the manifest saw, so
+          // function filenames and `tools.rspack` overrides are covered too.
+          const unsupported = collectUnsupportedRscScriptAssets(
+            stats.compilation
+          );
+          if (unsupported.length > 0) {
+            throw new Error(
+              `[${PLUGIN_NAME}] RSC mode requires every browser JavaScript asset to be named "*.js" (no query, no other extension): rspack's RSC manifest omits ${unsupported
+                .slice(0, 5)
+                .map(asset => JSON.stringify(asset))
+                .join(
+                  ', '
+                )}${unsupported.length > 5 ? ` and ${unsupported.length - 5} more` : ''}. Adjust web \`output.filename.js\` / \`chunkFilename\`.`
+            );
+          }
+        }
       }
       if (pluginOptions.federation && ssr) {
         const serverBuildDir = resolve(buildDirectory, 'server');
@@ -848,22 +870,6 @@ export const pluginReactRouter = (
 
     api.modifyRsbuildConfig(async (config, { mergeRsbuildConfig }) => {
       const webConfig = config.environments?.web;
-      const webJsFilename =
-        webConfig?.output?.filename?.js ?? config.output?.filename?.js;
-      // Rspack's RSC manifest only records browser entry files named `*.js`
-      // (`entryJsFiles`), and the server renders its bootstrap scripts from
-      // that list. Reject filename schemes it would silently drop up front.
-      if (
-        isRscMode &&
-        typeof webJsFilename === 'string' &&
-        !/\.js$/.test(webJsFilename)
-      ) {
-        throw new Error(
-          `[${PLUGIN_NAME}] RSC mode requires web \`output.filename.js\` to end in ".js" (got ${JSON.stringify(
-            webJsFilename
-          )}): rspack's RSC manifest omits entry files with a query or another extension, so the server could not render bootstrap scripts.`
-        );
-      }
       const assetPrefix = resolveEffectiveAssetPrefix(
         { dev: webConfig?.dev, output: webConfig?.output, isBuild },
         { dev: config.dev, output: config.output }
@@ -1043,6 +1049,31 @@ export const pluginReactRouter = (
       resolvedServerOutput,
       webOutput: modePlan.webOutput,
     });
+
+    if (pluginOptions.federation && modePlan.kind === 'classic') {
+      // Module Federation's async startup makes every entry's startup a
+      // promise. React Router imports each browser route-module entry
+      // synchronously (`import * as route0 from ".../root.js"`) and reads its
+      // exports right away, and `import()`s split route chunks the same way.
+      // Making those entry modules async (top-level await) turns Rspack's
+      // module-library export into `(await startup).default`, so importers
+      // wait for the awaited startup instead of reading a snapshot of the
+      // promise (#132). Runs after SWC so it applies to the final module code.
+      const browserEntryModules = new Set([
+        finalEntryClientPath,
+        ...routeByFilePath.keys(),
+      ]);
+      api.transform(
+        {
+          environments: ['web'],
+          order: 'post',
+          test: (resourcePath: string) => browserEntryModules.has(resourcePath),
+        },
+        // `export {}` keeps an otherwise-empty client module (a route with only
+        // server exports) parsed as ESM, which top-level await requires.
+        ({ code }) => `${code}\nexport {};\nawait Promise.resolve();\n`
+      );
+    }
 
     if (modePlan.kind === 'classic' && useRouteModuleTransformLoader) {
       api.modifyEnvironmentConfig(

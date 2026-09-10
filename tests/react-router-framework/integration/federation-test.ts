@@ -10,23 +10,25 @@ import {
 } from "./helpers/rsbuild.js";
 import { observeAssetResponses } from "./helpers/asset-responses.js";
 
-// Module Federation with `federation: true`, a minimal host and remote.
+// Module Federation with `federation: true`, a minimal host and remote (#132).
 //
-// The remote is BUILT with root `output.assetPrefix` pointing at origin A
-// (`/remote/v1/`) and the browser compiler on `'auto'`. The host's browser
-// loads the container from origin B under a different sub-path (`/remote/v2/`).
-// Origin A serves the same client build but refuses async stylesheets, so a
-// browser runtime that had the build-time prefix baked in (the plugin's old
-// forced `publicPath`) fails the lazy import's CSS, whereas automatic
-// resolution follows the loaded runtime to B.
+// Every ModuleFederationPlugin keeps `experiments.asyncStartup: true` (the
+// plugin enforces it) and every shared dependency stays non-eager. The remote
+// is BUILT with root `output.assetPrefix` pointing at origin A (`/remote/v1/`)
+// and the browser compiler on `'auto'`. The host's Node consumer fetches the
+// container and an exposed module's server chunk from origin A over HTTP (it
+// has no filesystem access to the remote build); the host's browser loads the
+// container from origin B under a different sub-path (`/remote/v2/`). Origin A
+// refuses async stylesheets, so a browser runtime with the build-time prefix
+// baked in (the plugin's old forced `publicPath`) fails the lazy import's CSS,
+// whereas automatic resolution follows the loaded runtime to B.
 //
-// Covered: direct ESM container on another origin + sub-path; an exposed
-// component with a further lazy JS/CSS dependency; relocated automatic browser
-// runtime with a negative control; CORS on the remote's asset responses.
-// Not covered here: a Node federation consumer (the CommonJS `asyncStartup`
-// server build currently resolves to `undefined` with @module-federation/node
-// 2.7.44, independent of this plugin's output changes) and manifest-based
-// (`mf-manifest.json`) remote loading.
+// Covered: awaited valid Node ServerBuild through async startup; SSR of the
+// remote; browser hydration through async startup (route-module entries are
+// made async so their exports resolve); direct ESM container on another
+// origin + sub-path; exposed component with a further lazy JS/CSS dependency;
+// relocated automatic browser runtime; CORS on the remote's asset responses.
+// Not covered: manifest-based (`mf-manifest.json`) remote loading.
 
 const DETAILS_COLOR = "rgb(0, 0, 255)";
 
@@ -50,7 +52,6 @@ const remoteFiles = (rootAssetPrefix: string) => ({
     const common = {
       name: "remote",
       exposes: { "./Widget": "./app/federation/widget.tsx" },
-      shared: ${SHARED},
       shareStrategy: "loaded-first",
       experiments: { asyncStartup: true },
       dts: false,
@@ -69,11 +70,12 @@ const remoteFiles = (rootAssetPrefix: string) => ({
         web: {
           // The browser runtime follows the script it was loaded from.
           output: { assetPrefix: "auto" },
-          tools: { rspack: { plugins: [new ModuleFederationPlugin({ ...common, library: { type: "module" } })] } },
+          tools: { rspack: { plugins: [new ModuleFederationPlugin({ ...common, shared: ${SHARED}, library: { type: "module" } })] } },
         },
         node: {
           tools: { rspack: { plugins: [new ModuleFederationPlugin({
             ...common,
+            shared: ${SHARED},
             library: { type: "commonjs-module" },
             runtimePlugins: ["@module-federation/node/runtimePlugin"],
           })] } },
@@ -127,6 +129,7 @@ const remoteFiles = (rootAssetPrefix: string) => ({
     a.get("/", (_req, res) => res.end("remote"));
     a.use(process.env.SERVER_MOUNT + "/static/css/async", (_req, res) => res.status(404).end("blocked"));
     a.use(process.env.SERVER_MOUNT, express.static("build/client", { index: false }));
+    a.use(process.env.SERVER_MOUNT + "/static/js/async", express.static("build/server/static/js/async"));
     a.listen(Number(process.env.PORT), () => console.log("remote A on " + process.env.PORT));
 
     const b = express();
@@ -136,8 +139,17 @@ const remoteFiles = (rootAssetPrefix: string) => ({
   `,
 });
 
-const hostFiles = (remoteWebEntry: string) => ({
+const hostFiles = (remoteWebEntry: string, remoteNodeEntry: string) => ({
   "react-router.config.ts": reactRouterConfig({}),
+  "app/root.tsx": js`
+    import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+    export default function App() {
+      return (
+        <html lang="en"><head><meta charSet="utf-8" /><Meta /><Links /></head>
+        <body><Outlet /><ScrollRestoration /><Scripts /></body></html>
+      );
+    }
+  `,
   "rsbuild.config.ts": `
     import { ModuleFederationPlugin } from "@module-federation/enhanced/rspack";
     import { defineConfig } from "@rsbuild/core";
@@ -161,23 +173,35 @@ const hostFiles = (remoteWebEntry: string) => ({
             remotes: { remote: ${JSON.stringify(remoteWebEntry)} },
           })] } },
         },
-        // The remote is consumed in the browser only; keep the specifier out
-        // of the server bundle.
-        node: { output: { externals: ["remote/Widget"] } },
+        node: {
+          tools: { rspack: { plugins: [new ModuleFederationPlugin({
+            name: "host",
+            shared: ${SHARED},
+            shareStrategy: "loaded-first",
+            experiments: { asyncStartup: true },
+            dts: false,
+            remotes: { remote: ${JSON.stringify(`remote@${remoteNodeEntry}`)} },
+            runtimePlugins: ["@module-federation/node/runtimePlugin"],
+          })] } },
+        },
       },
     });
   `,
+  // A route with only server exports compiles to an empty browser module; the
+  // async-entry transform must still produce a valid ES module for it.
+  "app/routes/api.ts": js`
+    export async function loader() {
+      return Response.json({ ok: true });
+    }
+  `,
   "app/routes/_index.tsx": js`
-    import { lazy, Suspense, useEffect, useState } from "react";
-    const Widget = lazy(() => import("remote/Widget"));
+    import Widget from "remote/Widget";
 
     export default function Index() {
-      const [mounted, setMounted] = useState(false);
-      useEffect(() => setMounted(true), []);
       return (
         <>
           <h1 data-host>host</h1>
-          {mounted ? <Suspense fallback={<p data-widget-pending>loading remote</p>}><Widget /></Suspense> : null}
+          <Widget />
         </>
       );
     }
@@ -199,19 +223,6 @@ const hostFiles = (remoteWebEntry: string) => ({
 });
 
 test.describe("Module Federation: remote consumed by a host on other origins", () => {
-  // Pre-existing (reproduces identically with the plugin built from `main`):
-  // in production, the host's browser entry never reaches hydration once
-  // `federation: true` forces MF `experiments.asyncStartup` (no React fibers
-  // attach, the remote container is never requested, no console errors), and a
-  // Node consumer's CommonJS async server build resolves to `undefined`. The
-  // Epic Stack federation host fails to boot on `main` for the same reasons.
-  // Keep this fixture as the reproduction; lift the fixme once the plugin's
-  // federation startup integration is fixed.
-  test.fixme(
-    true,
-    "federation: true production startup never hydrates the host (pre-existing; see comment)",
-  );
-
   let hostPort: number;
   let remoteAPort: number;
   let remoteBPort: number;
@@ -244,7 +255,9 @@ test.describe("Module Federation: remote consumed by a host on other origins", (
     );
 
     // Separate project directory: the host cannot read the remote build.
-    const hostCwd = await createProject(hostFiles(`${remoteBBase}static/js/remote.js`));
+    const hostCwd = await createProject(
+      hostFiles(`${remoteBBase}static/js/remote.js`, `${remoteABase}static/static/js/remote.js`),
+    );
     const hostBuild = build({ cwd: hostCwd });
     expect(hostBuild.status, hostBuild.stderr.toString()).toBe(0);
     stops.push(
@@ -259,7 +272,7 @@ test.describe("Module Federation: remote consumed by a host on other origins", (
     for (const stop of stops.reverse()) await stop();
   });
 
-  test("loads a remote component and its lazy JS/CSS from the origin the container came from", async ({
+  test("renders on the server, hydrates, and lazy-loads a remote component across origins", async ({
     page,
     request,
   }) => {
@@ -274,6 +287,13 @@ test.describe("Module Federation: remote consumed by a host on other origins", (
     await test.step("origin A (the build-time prefix) refuses the remote's async stylesheets", async () => {
       const blocked = await request.get(`${remoteABase}static/css/async/any.css`);
       expect(blocked.status()).toBe(404);
+    });
+
+    await test.step("the Node consumer renders the remote over HTTP (isolated filesystem)", async () => {
+      const response = await request.get(`http://localhost:${hostPort}/`);
+      expect(response.status()).toBe(200);
+      const html = await response.text();
+      expect(html).toContain("remote widget");
     });
 
     const observed = observeAssetResponses(page);

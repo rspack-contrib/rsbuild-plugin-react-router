@@ -50,7 +50,6 @@ describe('RSC support helpers', () => {
       basename: '/',
       buildDirectory: '/repo/build',
       isBuild: false,
-      jsDistPath: 'custom/js',
       outputClientPath: '/repo/build/client',
       publicPath: '/assets',
       routeDiscovery: { mode: 'initial' },
@@ -123,6 +122,22 @@ describe('RSC support helpers', () => {
     // Idempotent: a second evaluation must not re-prefix.
     evaluate(swapped.rscM);
     expect(swapped.rscM.entryJsFiles).toEqual(['/assets/static/js/index.abc123.js']);
+    // Empty browser prefix (web `assetPrefix: ''`): rspack emits relative
+    // references, which are rebased onto the server prefix; absolute and
+    // protocol-relative URLs are untouched.
+    const relative = evaluate({
+      entryJsFiles: ['static/js/index.abc123.js', 'https://other.example/x.js', '//cdn.example/y.js'],
+      entryCssFiles: { 'root.tsx': ['static/css/root.css'] },
+      clientManifest: {},
+      moduleLoading: { prefix: '' },
+    });
+    expect(relative.bootstrap).toEqual([
+      '/assets/static/js/index.abc123.js',
+      'https://other.example/x.js',
+      '//cdn.example/y.js',
+    ]);
+    expect(relative.rscM.entryCssFiles['root.tsx']).toEqual(['/assets/static/css/root.css']);
+    expect(relative.rscM.moduleLoading.prefix).toBe('/assets/');
     // No entry script recorded (rspack drops non-`.js` names): fail loudly
     // rather than render a document that cannot hydrate.
     expect(() =>
@@ -157,7 +172,6 @@ describe('RSC support helpers', () => {
         basename: '/',
         buildDirectory: '/repo/build',
         isBuild: true,
-        jsDistPath: 'static/js',
         outputClientPath: '/repo/build/client',
         publicPath: '/',
         routeDiscovery,
@@ -184,7 +198,6 @@ describe('RSC support helpers', () => {
       basename: '/',
       buildDirectory: '/repo/build',
       isBuild: true,
-      jsDistPath: 'static/js',
       outputClientPath: '/repo/build/client',
       publicPath: '/',
       routeDiscovery: { mode: 'initial' },

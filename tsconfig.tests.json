@@ -5,5 +5,8 @@
     "noEmit": true,
     "rootDir": "."
   },
-  "include": ["tests/react-router-framework-*.test.ts"]
+  "include": [
+    "tests/react-router-framework-*.test.ts",
+    "tests/output-config.integration.test.ts"
+  ]
 }

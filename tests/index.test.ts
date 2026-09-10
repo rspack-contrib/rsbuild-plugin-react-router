@@ -444,41 +444,6 @@ describe('pluginReactRouter', () => {
     ).toBeUndefined();
   });
 
-  it('rejects web filename schemes the rspack RSC manifest would drop', async () => {
-    const rsbuild = await createStubRsbuild({
-      action: 'build',
-      rsbuildConfig: {
-        environments: {
-          web: { output: { filename: { js: '[name].js?v=[contenthash:8]' } } },
-        },
-      },
-    });
-
-    rsbuild.addPlugins([pluginReactRouter({ rsc: true })]);
-
-    await expect(rsbuild.unwrapConfig()).rejects.toThrow(
-      /RSC mode requires web `output.filename.js` to end in "\.js"/
-    );
-  });
-
-  it('accepts hashed .js web filenames in RSC mode', async () => {
-    const rsbuild = await createStubRsbuild({
-      action: 'build',
-      rsbuildConfig: {
-        environments: {
-          web: { output: { filename: { js: '[contenthash:8]-[name].js' } } },
-        },
-      },
-    });
-
-    rsbuild.addPlugins([pluginReactRouter({ rsc: true })]);
-    const config = await rsbuild.unwrapConfig();
-
-    expect(config.environments.web.output.filename.js).toBe(
-      '[contenthash:8]-[name].js'
-    );
-  });
-
   it('shrinks classic production browser output', async () => {
     const rsbuild = await createStubRsbuild({
       action: 'build',

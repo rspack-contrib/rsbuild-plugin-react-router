@@ -1,5 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import path from "node:path";
 import getPort from "get-port";
 import { test, expect } from "@playwright/test";
@@ -11,7 +10,6 @@ import {
   customDev,
   reactRouterConfig,
 } from "./helpers/rsbuild.js";
-import { rsbuildBin } from "./helpers/rsbuild-adapter.js";
 import { observeAssetResponses } from "./helpers/asset-responses.js";
 
 // https://github.com/rstackjs/rsbuild-plugin-react-router/issues/130
@@ -27,7 +25,8 @@ import { observeAssetResponses } from "./helpers/asset-responses.js";
 // origin return a real 404 for an emitted asset. The relocation scenario is
 // the negative control: its build-time root prefix is `/`, so the old
 // hard-coded mechanism resolves async CSS to the page origin and fails, while
-// automatic resolution follows the script to the asset origin.
+// automatic resolution follows the script to the asset origin. (The final
+// compiler `publicPath: 'auto'` is asserted by the real-config unit suite.)
 
 const ASYNC_CSS_COLOR = "rgb(255, 0, 0)";
 
@@ -197,20 +196,6 @@ for (const scenario of scenarios) {
       const files = listClientFiles(cwd);
       const emittedCss = files.find((file) => /^static\/css\/async\/.*\.css$/.test(file));
       expect(emittedCss, "an async stylesheet was emitted").toBeDefined();
-
-      await test.step("the final web compiler config keeps publicPath 'auto'", () => {
-        const inspect = spawnSync(process.argv[0], [rsbuildBin, "inspect", "--mode", "production"], {
-          cwd,
-          env: { ...process.env, NODE_ENV: "production" },
-        });
-        expect(inspect.status, inspect.stderr.toString()).toBe(0);
-        const webConfig = readFileSync(
-          path.join(cwd, "build/.rsbuild/rspack.config.web.mjs"),
-          "utf8",
-        );
-        // Complementary evidence only; the browser steps below are decisive.
-        expect.soft(webConfig).toMatch(/publicPath: 'auto'/);
-      });
 
       await test.step("the page origin cannot serve an emitted asset", async () => {
         const wrongOrigin = await request.get(`http://localhost:${port}/${emittedCss}`);

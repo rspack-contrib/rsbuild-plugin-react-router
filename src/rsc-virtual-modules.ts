@@ -127,11 +127,19 @@ export const createReactRouterRscVirtualModules = ({
     'virtual/react-router/unstable_rsc/manifest-prefix': `const manifest = __webpack_require__.rscM;
 const serverPrefix = ${JSON.stringify(serverPublicPath)};
 const appliedPrefix = manifest?.moduleLoading?.prefix;
-if (appliedPrefix && appliedPrefix !== serverPrefix) {
+// An empty applied prefix (web \`assetPrefix: ''\`) yields relative references
+// such as "static/js/index.js"; those are rebased too, while absolute and
+// protocol-relative URLs are left alone.
+const isAbsoluteUrl = url => /^(?:[a-z][a-z\\d+.-]*:|\\/\\/|\\/)/i.test(url);
+if (typeof appliedPrefix === "string" && appliedPrefix !== serverPrefix) {
   const rewrite = url =>
-    typeof url === "string" && url.startsWith(appliedPrefix)
-      ? serverPrefix + url.slice(appliedPrefix.length)
-      : url;
+    typeof url !== "string"
+      ? url
+      : appliedPrefix !== "" && url.startsWith(appliedPrefix)
+        ? serverPrefix + url.slice(appliedPrefix.length)
+        : appliedPrefix === "" && !isAbsoluteUrl(url)
+          ? serverPrefix + url
+          : url;
   const rewriteAll = list => {
     if (Array.isArray(list)) for (let i = 0; i < list.length; i++) list[i] = rewrite(list[i]);
   };

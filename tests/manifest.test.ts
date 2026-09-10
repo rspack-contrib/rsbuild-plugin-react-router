@@ -9,6 +9,7 @@ import {
   generateReactRouterManifestForDev,
   getReactRouterManifestForDev,
   getReactRouterManifestChunkNames,
+  collectUnsupportedRscScriptAssets,
   isManifestCssAsset,
   isManifestJsAsset,
 } from '../src/manifest';
@@ -613,6 +614,48 @@ describe('manifest', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('lists browser scripts the rspack RSC manifest would drop, by chunk metadata', () => {
+    const chunk = (
+      name: string,
+      { js = true, initial = true }: { js?: boolean; initial?: boolean } = {}
+    ) => ({
+      name,
+      contentHash: js ? { javascript: 'abc123' } : { 'css/mini-extract': 'def' },
+      canBeInitial: () => initial,
+    });
+    const compilation = {
+      chunks: [
+        chunk('client-index'),
+        chunk('styles-only', { js: false }),
+        chunk('757', { initial: false }),
+        chunk('758', { initial: false }),
+      ],
+      chunkGraph: { getChunkModulesIterableBySourceType: () => [] },
+      outputOptions: {
+        // Entry template as a function (Rsbuild passes user functions through).
+        filename: (data: { chunk: { name: string } }) =>
+          `static/js/${data.chunk.name}.js?v=[contenthash:8]`,
+        chunkFilename: 'static/js/async/[name].txt',
+      },
+      getPath: (template: string, data: { chunk: { name: string } }) =>
+        template.replace('[name]', data.chunk.name).replace('[contenthash:8]', 'deadbeef'),
+    };
+    expect(collectUnsupportedRscScriptAssets(compilation)).toEqual([
+      'static/js/client-index.js?v=deadbeef',
+      'static/js/async/757.txt',
+      'static/js/async/758.txt',
+    ]);
+
+    // Plain ".js" everywhere (hashed or not) is fine; an extension-less script
+    // is not JavaScript-looking at all and is still reported.
+    expect(
+      collectUnsupportedRscScriptAssets({
+        ...compilation,
+        outputOptions: { filename: '[contenthash:8]-[name].js', chunkFilename: 'async/[name]' },
+      })
+    ).toEqual(['async/757', 'async/758']);
   });
 
   it('fails the build instead of inventing a module path when a chunk has no script', async () => {

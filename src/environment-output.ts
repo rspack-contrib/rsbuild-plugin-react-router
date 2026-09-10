@@ -1,5 +1,9 @@
 import type { RsbuildPluginAPI, Rspack } from '@rsbuild/core';
-import { ensureFederationAsyncStartup } from './federation.js';
+import {
+  enforceAsyncOnlyServerSplitChunks,
+  ensureFederationAsyncStartup,
+  isolateFederationContainerRuntime,
+} from './federation.js';
 
 /**
  * Rspack `output` policy for the web and node environments, in two tiers:
@@ -70,6 +74,11 @@ export const registerReactRouterEnvironmentOutput = ({
           rspack: rspackConfig => {
             if (federation) {
               ensureFederationAsyncStartup(rspackConfig);
+              if (name === 'web') {
+                isolateFederationContainerRuntime(rspackConfig);
+              } else {
+                enforceAsyncOnlyServerSplitChunks(rspackConfig);
+              }
             }
 
             if (name === 'node') {

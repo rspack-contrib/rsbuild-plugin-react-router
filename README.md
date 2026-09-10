@@ -103,9 +103,17 @@ pluginReactRouter({
 | `federation`                     | `false`     | Enables the plugin's experimental Module Federation integration.                                                                                                                                                                 |
 
 When `federation` is enabled, configure the Module Federation plugin with
-`experiments.asyncStartup: true`. The dev server resolves async server build
+`experiments.asyncStartup: true` on every compiler (the plugin enforces it) and
+keep shared dependencies non-eager. The dev server resolves async server build
 exports automatically; production custom servers or adapters should resolve
-async exports before passing the build to React Router's request handler.
+async exports before passing the build to React Router's request handler
+(`resolveReactRouterServerBuild`). Give remote containers an explicit
+`filename` (for example `static/js/remote.js`); every other browser chunk keeps
+Rsbuild's content hash. Under the hood the plugin gives each container its own
+runtime chunk (so importing a container does not start the app's own share
+consumes), makes browser route-module entries async so their exports resolve
+through the async startup, and keeps server code splitting async-only so the
+`@module-federation/node` chunk loader can satisfy the server build's startup.
 
 ### React Router Config
 
@@ -364,6 +372,16 @@ for the web environment. Production browser entries use Rsbuild's default
 content-hashed filenames, and `output.filename`, `output.filenameHash`,
 `output.distPath`, and `tools.rspack` output settings you configure govern
 the emitted files and the manifest URLs that reference them.
+
+Supported browser filename forms differ by mode:
+
+- **Classic mode** accepts any scheme, including `.mjs`/`.cjs` and query-hash
+  names such as `[name].js?v=[contenthash:8]`; the browser manifest classifies
+  emitted assets by pathname and keeps the full reference.
+- **RSC mode** requires every browser JavaScript asset to be named `*.js`
+  (hashes are fine, e.g. `[contenthash:8]-[name].js`): rspack's RSC manifest
+  only records `.js` files, so the build fails with a clear error for query
+  hashes or other extensions.
 
 ## Custom Server Setup
 

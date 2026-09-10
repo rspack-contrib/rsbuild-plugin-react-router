@@ -82,29 +82,40 @@ export async function createApp(devServer?: any) {
 	app.disable('x-powered-by')
 
 	// The host loads this remote's container and the ES modules it imports
-	// cross-origin (`remoteType: 'import'`), which requires CORS on every asset
-	// response. Set it before any static handler.
-	app.use((_req, res, next) => {
-		res.setHeader('Access-Control-Allow-Origin', '*')
-		next()
-	})
+	// cross-origin (`remoteType: 'import'`), which requires CORS on the asset
+	// responses (container, runtime, chunks, manifest). Scope it to the asset
+	// handlers; documents, data requests, and resource routes are unaffected.
+	const allowCrossOriginAssets: Parameters<typeof express.static>[1] = {
+		maxAge: '1h',
+		setHeaders: (res) => res.setHeader('Access-Control-Allow-Origin', '*'),
+	}
 
 	if (IS_DEV) {
 		// use rsbuild dev server
 		if (devServer) {
+			app.use((req, res, next) => {
+				if (req.path.startsWith('/static/') || req.path.endsWith('mf-manifest.json')) {
+					res.setHeader('Access-Control-Allow-Origin', '*')
+				}
+				next()
+			})
 			app.use(devServer.middlewares)
 		}
 	} else {
 		// Remix fingerprints its assets so we can cache forever.
 		app.use(
 			'/assets',
-			express.static('build/client/assets', { immutable: true, maxAge: '1y' }),
+			express.static('build/client/assets', {
+				...allowCrossOriginAssets,
+				immutable: true,
+				maxAge: '1y',
+			}),
 		)
 
 		// Everything else (like favicon.ico) is cached for an hour. You may want to be
 		// more aggressive with this caching.
-		app.use(express.static('build/client', { maxAge: '1h' }))
-		app.use('/server', express.static('build/server', { maxAge: '1h' }))
+		app.use(express.static('build/client', allowCrossOriginAssets))
+		app.use('/server', express.static('build/server', allowCrossOriginAssets))
 		// The host's Node federation runtime resolves this remote's server chunks
 		// against the node compiler's publicPath (`REMOTE_ASSET_PREFIX`), i.e.
 		// `<origin>/static/js/async/<chunk>.js`, not against the container URL.
@@ -112,7 +123,7 @@ export async function createApp(devServer?: any) {
 		// content-hashed, so the two trees do not collide.
 		app.use(
 			'/static/js/async',
-			express.static('build/server/static/js/async', { maxAge: '1h' }),
+			express.static('build/server/static/js/async', allowCrossOriginAssets),
 		)
 	}
 

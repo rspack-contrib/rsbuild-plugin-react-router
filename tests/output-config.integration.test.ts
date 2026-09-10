@@ -10,7 +10,7 @@ import {
 } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 import { afterAll, beforeAll, describe, expect, it } from '@rstest/core';
-import { pluginReactRouter, pluginReactRouterRSC } from '../src';
+import { pluginReactRouter, pluginReactRouterRSC } from '../src/index.js';
 
 // Output precedence against real Rsbuild: `inspectConfig` runs the full
 // pipeline (config normalization, environment hooks, `modifyRspackConfig`,
@@ -37,12 +37,14 @@ afterAll(() => {
   rmSync(fixtureRoot, { recursive: true, force: true });
 });
 
-const inspect = async (
+const create = (
   plugin: RsbuildPlugin,
-  rsbuildConfig: RsbuildConfig = {}
-): Promise<Record<string, Rspack.Configuration>> => {
-  const rsbuild = await createRsbuild({
+  rsbuildConfig: RsbuildConfig = {},
+  environment?: string[]
+) =>
+  createRsbuild({
     cwd: fixtureRoot,
+    environment,
     rsbuildConfig: {
       root: fixtureRoot,
       customLogger: createLogger({ level: 'silent' }),
@@ -50,6 +52,12 @@ const inspect = async (
       plugins: [plugin, pluginReact(), ...(rsbuildConfig.plugins ?? [])],
     },
   });
+
+const inspect = async (
+  plugin: RsbuildPlugin,
+  rsbuildConfig: RsbuildConfig = {}
+): Promise<Record<string, Rspack.Configuration>> => {
+  const rsbuild = await create(plugin, rsbuildConfig);
   const { origin } = await rsbuild.inspectConfig({ mode: 'production' });
   return Object.fromEntries(
     origin.bundlerConfigs.map(config => [config.name, config])
@@ -133,9 +141,23 @@ describe('final Rspack output configuration (real Rsbuild)', () => {
     expect(output(web).publicPath).toBe('auto');
   });
 
-  it('configures CommonJS server output and federation chunk loading', async () => {
+  // https://github.com/rstackjs/rsbuild-plugin-react-router/issues/132
+  it('configures CommonJS server output and Module Federation invariants', async () => {
+    const federationPlugin = (options: Record<string, unknown>) => ({
+      name: 'ModuleFederationPlugin',
+      _options: options,
+      apply() {},
+    });
+    const webPlugin = federationPlugin({ name: 'host', shared: { react: {} } });
+    const nodePlugin = federationPlugin({ name: 'host', shared: { react: {} } });
     const { web, node } = await inspect(
-      pluginReactRouter({ serverOutput: 'commonjs', federation: true })
+      pluginReactRouter({ serverOutput: 'commonjs', federation: true }),
+      {
+        environments: {
+          web: { tools: { rspack: { plugins: [webPlugin] } } },
+          node: { tools: { rspack: { plugins: [nodePlugin] } } },
+        },
+      }
     );
 
     expect(output(web).chunkLoading).toBe('import');
@@ -147,7 +169,100 @@ describe('final Rspack output configuration (real Rsbuild)', () => {
       library: { type: 'commonjs2' },
     });
     expect(node.target).toBe('async-node');
+
+    // Async startup is mandatory on every compiler; sharing stays as declared
+    // (non-eager).
+    expect(webPlugin._options.experiments).toEqual({ asyncStartup: true });
+    expect(nodePlugin._options.experiments).toEqual({ asyncStartup: true });
+    expect(webPlugin._options.shared).toEqual({ react: {} });
+
+    // The container gets its own runtime chunk; app entries keep sharing one.
+    const runtimeChunk = web.optimization?.runtimeChunk as {
+      name: (entrypoint: { name: string }) => string;
+    };
+    expect(runtimeChunk.name({ name: 'host' })).toBe('runtime-host');
+    expect(runtimeChunk.name({ name: 'entry.client' })).toBe('runtime');
+    expect(runtimeChunk.name({ name: 'root' })).toBe('runtime');
+
+    // The server build has no initial chunk dependencies for the async
+    // startup gate; server code splitting stays async-only.
+    expect(node.optimization?.splitChunks).toMatchObject({ chunks: 'async' });
   });
+
+  it('keeps federation server splitting async-only past late overrides and presets', async () => {
+    const { node: overridden } = await inspect(
+      pluginReactRouter({ serverOutput: 'commonjs', federation: true }),
+      {
+        environments: {
+          node: {
+            // A user `tools.rspack` function runs after the plugin's defaults.
+            tools: {
+              rspack: config => {
+                config.optimization!.splitChunks = {
+                  ...(config.optimization!.splitChunks as object),
+                  chunks: 'all',
+                };
+              },
+            },
+          },
+        },
+      }
+    );
+    expect(overridden.optimization?.splitChunks).toMatchObject({ chunks: 'async' });
+
+    // Rsbuild's `single-vendor` preset adds an enforced cache group with
+    // `chunks: 'all'`, which Rspack prefers over the global filter.
+    const { node: preset } = await inspect(
+      pluginReactRouter({ serverOutput: 'commonjs', federation: true }),
+      { environments: { node: { splitChunks: { preset: 'single-vendor' } } } }
+    );
+    const splitChunks = preset.optimization?.splitChunks as {
+      chunks: unknown;
+      cacheGroups: Record<string, { chunks?: unknown; enforce?: boolean }>;
+    };
+    expect(splitChunks.chunks).toBe('async');
+    const groups = Object.values(splitChunks.cacheGroups);
+    expect(groups.length).toBeGreaterThan(0);
+    for (const group of groups) {
+      if ('chunks' in group) expect(group.chunks).toBe('async');
+    }
+
+    // An explicitly disabled splitChunks stays disabled.
+    const { node: disabled } = await inspect(
+      pluginReactRouter({ serverOutput: 'commonjs', federation: true }),
+      { environments: { node: { splitChunks: false } } }
+    );
+    expect(disabled.optimization?.splitChunks).toBe(false);
+  });
+
+  it('keeps the shared browser runtime chunk without federation', async () => {
+    const { web, node } = await inspect(pluginReactRouter());
+    expect(web.optimization?.runtimeChunk).toBe('single');
+    expect(node.optimization?.splitChunks).toMatchObject({ chunks: 'all' });
+  });
+
+  // `getNormalizedConfig({ environment: 'web' })` throws when the build is
+  // narrowed to other environments; `onBeforeCreateCompiler` must not call it.
+  it('creates the compiler when only the node environment is selected', async () => {
+    const rsbuild = await create(
+      pluginReactRouter({ lazyCompilation: false }),
+      { output: { assetPrefix: 'https://cdn.example.com/app/' } },
+      ['node']
+    );
+    const compiler = await rsbuild.createCompiler();
+    try {
+      const names =
+        'compilers' in compiler
+          ? compiler.compilers.map(child => child.name)
+          : [compiler.name];
+      expect(names).toEqual(['node']);
+      expect(rsbuild.getNormalizedConfig().environments.web).toBeUndefined();
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        compiler.close(error => (error ? reject(error) : resolve()))
+      );
+    }
+  }, 60_000);
 
   it('configures RSC browser output', async () => {
     const { web } = await inspect(pluginReactRouterRSC());
