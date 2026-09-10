@@ -174,7 +174,7 @@ type ReactRouterManifestStatsCompilation = {
 // regardless of `output.filename` scheme. In development, HMR update files are
 // also recorded on `chunk.files`; they are never the module to load.
 export const isManifestJsAsset = (asset: string): boolean =>
-  /(?<!\.hot-update)\.js(?:\?.*)?$/.test(asset);
+  /(?<!\.hot-update)\.[cm]?js(?:\?.*)?$/.test(asset);
 
 export const isManifestCssAsset = (asset: string): boolean =>
   /\.css(?:\?.*)?$/.test(asset);
@@ -317,7 +317,14 @@ const createChunkAssetResolver = (
       }
     }
     if (jsAssets.size === 0) {
-      jsAssets.add(`${DEFAULT_MANIFEST_DIR}/${chunkName}.js`);
+      // Compilation metadata exists for this chunk but names no module script.
+      // Guessing `<dir>/<chunk>.js` here would turn an identifiable build
+      // problem into a browser 404, so surface it at build time instead.
+      throw new Error(
+        `[react-router] Chunk "${chunkName}" emitted no JavaScript asset the browser manifest can reference (files: ${
+          assets.join(', ') || 'none'
+        }). Check the web \`output.filename.js\` scheme.`
+      );
     }
 
     const result = { js: [...jsAssets], css: [...cssAssets] };

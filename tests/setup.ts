@@ -79,14 +79,6 @@ const deepMerge = (base: any, overrides: any): any => {
   if (!overrides || typeof overrides !== 'object') {
     return base;
   }
-  // Like `mergeRsbuildConfig` for `tools.*`: a function merged with an object
-  // becomes an ordered list that Rsbuild later applies in sequence.
-  if (typeof base === 'function') {
-    return [base, overrides];
-  }
-  if (Array.isArray(base) && !Array.isArray(overrides)) {
-    return [...base, overrides];
-  }
   if (!base || typeof base !== 'object') {
     return overrides;
   }
@@ -231,40 +223,22 @@ rstest.mock('@scripts/test-helper', () => ({
       }
     });
 
+    // Hooks register (and push their promises) while `setup` is still running,
+    // so drain `pending` until no new work appears; otherwise a rejected
+    // config hook would go unobserved.
+    const settlePending = async () => {
+      let settled = 0;
+      while (settled < pending.length) {
+        const batch = pending.slice(settled);
+        settled = pending.length;
+        await Promise.all(batch);
+      }
+    };
     stub.unwrapConfig.mockImplementation(async () => {
-      await Promise.all(pending);
+      await settlePending();
       return mergedConfig;
     });
 
-    // Apply the recorded `modifyRspackConfig` handlers for one environment and
-    // return the resulting Rspack config, mirroring Rsbuild's hook order (the
-    // handlers run before the user's `tools.rspack`, which is applied last).
-    const rspackHandlers: any[] = [];
-    stub.modifyRspackConfig.mockImplementation((handler: any) => {
-      rspackHandlers.push(handler);
-    });
-    stub.unwrapRspackConfig = rstest.fn().mockImplementation(
-      async (environmentName: string, initial: any = {}) => {
-        await Promise.all(pending);
-        let current = initial;
-        const utils = {
-          environment: { name: environmentName },
-          mergeConfig: (a: any, b: any) => deepMerge(a, b),
-        };
-        for (const handler of rspackHandlers) {
-          current = (await handler(current, utils)) ?? current;
-        }
-        const toolsRspack = mergedConfig.environments?.[environmentName]?.tools?.rspack;
-        for (const entry of [toolsRspack].flat()) {
-          if (typeof entry === 'function') {
-            current = (await entry(current, utils)) ?? current;
-          } else if (entry) {
-            current = deepMerge(current, entry);
-          }
-        }
-        return current;
-      }
-    );
 
     return stub;
   }),

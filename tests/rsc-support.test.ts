@@ -67,35 +67,67 @@ describe('RSC support helpers', () => {
     expect(modules['virtual/react-router/server-build']).toBeUndefined();
     // Bootstrap scripts come from the rspack RSC manifest at runtime (so hashed
     // entry filenames work); the computed path is only the fallback.
-    const bootstrapScripts =
-      modules['virtual/react-router/unstable_rsc/bootstrap-scripts'];
-    expect(bootstrapScripts).toContain('["/assets/custom/js/index.js"]');
-    const evaluate = (rscM: unknown) =>
-      new Function(
+    // The manifest-prefix module aligns `__webpack_require__.rscM` in place and
+    // the bootstrap module then reads it. Evaluate both as plain scripts.
+    const evaluate = (rscM: any) => {
+      const rscManifest = new Function(
         '__webpack_require__',
-        bootstrapScripts.replace('export default', 'return')
+        modules['virtual/react-router/unstable_rsc/manifest-prefix'].replace(
+          'export const rscManifest =',
+          'return'
+        )
       )({ rscM });
-    // Manifest entries already carry the prefix the server uses: pass through
-    // untouched, preserving the full list and its order.
-    expect(
-      evaluate({
-        entryJsFiles: ['/assets/static/js/index.abc123.js', '/assets/static/js/polyfill.js'],
-        moduleLoading: { prefix: '/assets/' },
-      })
-    ).toEqual(['/assets/static/js/index.abc123.js', '/assets/static/js/polyfill.js']);
-    // Browser compiler on 'auto' (rspack records `/`), server prefix differs:
-    // swap the applied prefix for the server prefix, never stack a second one.
-    expect(
-      evaluate({
-        entryJsFiles: ['/static/js/index.abc123.js'],
-        moduleLoading: { prefix: '/' },
-      })
-    ).toEqual(['/assets/static/js/index.abc123.js']);
-    // Missing manifest data falls back to the computed entry path.
-    expect(evaluate({ entryJsFiles: [] })).toEqual([
-      '/assets/custom/js/index.js',
+      const bootstrap = new Function(
+        'rscManifest',
+        modules['virtual/react-router/unstable_rsc/bootstrap-scripts']
+          .replace(/^import .*\n/, '')
+          .replace('export default', 'return')
+      )(rscManifest) as string[];
+      return { bootstrap, rscM };
+    };
+    // Manifest already carries the prefix the server uses: untouched, with
+    // the full list and its order preserved.
+    const same = evaluate({
+      entryJsFiles: ['/assets/static/js/index.abc123.js', '/assets/static/js/polyfill.js'],
+      entryCssFiles: { 'root.tsx': ['/assets/static/css/root.css'] },
+      clientManifest: { a: { cssFiles: ['/assets/static/css/a.css'] } },
+      moduleLoading: { prefix: '/assets/' },
+    });
+    expect(same.bootstrap).toEqual([
+      '/assets/static/js/index.abc123.js',
+      '/assets/static/js/polyfill.js',
     ]);
-    expect(evaluate(undefined)).toEqual(['/assets/custom/js/index.js']);
+    expect(same.rscM.entryCssFiles['root.tsx']).toEqual(['/assets/static/css/root.css']);
+    expect(same.rscM.moduleLoading.prefix).toBe('/assets/');
+    // Browser compiler on 'auto' (rspack records `/`), server prefix differs:
+    // bootstrap scripts, route CSS, client-reference CSS, and Flight's preload
+    // prefix all move to the server prefix, never stacking a second one.
+    const entryCss = ['/static/css/async/768.css'];
+    const swapped = evaluate({
+      entryJsFiles: ['/static/js/index.abc123.js'],
+      entryCssFiles: { 'root.tsx': entryCss },
+      clientManifest: {
+        a: { cssFiles: ['/static/css/async/757.css', 'https://other.example/x.css'] },
+        b: {},
+      },
+      moduleLoading: { prefix: '/' },
+    });
+    expect(swapped.bootstrap).toEqual(['/assets/static/js/index.abc123.js']);
+    // Mutated in place: consumers that captured the array earlier see it too.
+    expect(entryCss).toEqual(['/assets/static/css/async/768.css']);
+    expect(swapped.rscM.clientManifest.a.cssFiles).toEqual([
+      '/assets/static/css/async/757.css',
+      'https://other.example/x.css',
+    ]);
+    expect(swapped.rscM.moduleLoading.prefix).toBe('/assets/');
+    // Idempotent: a second evaluation must not re-prefix.
+    evaluate(swapped.rscM);
+    expect(swapped.rscM.entryJsFiles).toEqual(['/assets/static/js/index.abc123.js']);
+    // No entry script recorded (rspack drops non-`.js` names): fail loudly
+    // rather than render a document that cannot hydrate.
+    expect(() =>
+      evaluate({ entryJsFiles: [], moduleLoading: { prefix: '/' } })
+    ).toThrow(/lists no browser entry script/);
     // The RSC HMR runtime only self-accepts; the single `rsc:update` navigate
     // handler now lives in the RSC client entry, not this virtual module.
     expect(

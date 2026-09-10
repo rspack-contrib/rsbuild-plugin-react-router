@@ -6,11 +6,7 @@ import { rspack, type RsbuildPlugin, type Rspack } from '@rsbuild/core';
 import { relative, resolve } from 'pathe';
 
 import { getDefaultConcurrency } from './concurrency.js';
-import {
-  DEFAULT_JS_DIST_PATH,
-  JS_EXTENSIONS,
-  PLUGIN_NAME,
-} from './constants.js';
+import { JS_EXTENSIONS, PLUGIN_NAME } from './constants.js';
 import { guardReactRouterLazyCompilation } from './lazy-compilation.js';
 import {
   findEntryFile,
@@ -228,12 +224,15 @@ export const pluginReactRouter = (
     // so `output.assetPrefix: 'https://cdn/'` + web `'auto'` still emits CDN
     // URLs from the server.
     api.onBeforeCreateCompiler(() => {
-      const web = api.getNormalizedConfig({ environment: 'web' });
       const root = api.getNormalizedConfig();
+      // `getNormalizedConfig({ environment: 'web' })` throws when the build was
+      // narrowed to other environments (`--environment node`), so look the web
+      // environment up on the root config instead.
+      const web = root.environments.web;
       assetPrefix = resolveEffectiveAssetPrefix(
         {
-          dev: web.dev,
-          output: web.output,
+          dev: web?.dev,
+          output: web?.output,
           isBuild: api.context.action === 'build',
         },
         { dev: root.dev, output: root.output }
@@ -841,36 +840,35 @@ export const pluginReactRouter = (
     }
 
     // Public requests stay bare while Rspack resolves seeded virtual files.
-    const createVirtualModulePlugin = (
-      publicPath: string,
-      jsDistPath: string
-    ) => {
+    const createVirtualModulePlugin = (publicPath: string) => {
       return new rspack.experiments.VirtualModulesPlugin(
-        mapVirtualModules(modePlan.createVirtualModules(publicPath, jsDistPath))
+        mapVirtualModules(modePlan.createVirtualModules(publicPath))
       );
     };
 
-    const nodeChunkLoading =
-      resolvedServerOutput === 'module'
-        ? 'import'
-        : options.federation
-          ? 'async-node'
-          : 'require';
     api.modifyRsbuildConfig(async (config, { mergeRsbuildConfig }) => {
       const webConfig = config.environments?.web;
-      // Fallback location of the RSC browser entry when the RSC manifest does
-      // not report `entryJsFiles`; see `createReactRouterRscVirtualModules`.
-      const webDistPath = webConfig?.output?.distPath;
-      const rootDistPath = config.output?.distPath;
-      const jsDistPath =
-        (typeof webDistPath === 'object' ? webDistPath.js : undefined) ??
-        (typeof rootDistPath === 'object' ? rootDistPath.js : undefined) ??
-        DEFAULT_JS_DIST_PATH;
+      const webJsFilename =
+        webConfig?.output?.filename?.js ?? config.output?.filename?.js;
+      // Rspack's RSC manifest only records browser entry files named `*.js`
+      // (`entryJsFiles`), and the server renders its bootstrap scripts from
+      // that list. Reject filename schemes it would silently drop up front.
+      if (
+        isRscMode &&
+        typeof webJsFilename === 'string' &&
+        !/\.js$/.test(webJsFilename)
+      ) {
+        throw new Error(
+          `[${PLUGIN_NAME}] RSC mode requires web \`output.filename.js\` to end in ".js" (got ${JSON.stringify(
+            webJsFilename
+          )}): rspack's RSC manifest omits entry files with a query or another extension, so the server could not render bootstrap scripts.`
+        );
+      }
       const assetPrefix = resolveEffectiveAssetPrefix(
         { dev: webConfig?.dev, output: webConfig?.output, isBuild },
         { dev: config.dev, output: config.output }
       );
-      const vmodPlugin = createVirtualModulePlugin(assetPrefix, jsDistPath);
+      const vmodPlugin = createVirtualModulePlugin(assetPrefix);
       const configuredLazyCompilation = Object.prototype.hasOwnProperty.call(
         options,
         'lazyCompilation'
@@ -1039,44 +1037,11 @@ export const pluginReactRouter = (
       });
     });
 
-    // Rspack `output` defaults are applied here instead of through the merged
-    // `tools.rspack` object above: Rsbuild runs the user's `tools.rspack`
-    // (object or function form) after `modifyRspackConfig`, so user output
-    // settings such as `chunkFilename` take precedence over these defaults
-    // (#129, #130). Neither `filename` nor `publicPath` is set: Rsbuild derives
-    // them from `output.filename`/`output.filenameHash`/`output.distPath` and
-    // the environment's `output.assetPrefix`, which keeps `'auto'` intact.
-    api.modifyRspackConfig((rspackConfig, { environment, mergeConfig }) => {
-      if (environment.name === 'web') {
-        return mergeConfig(rspackConfig, {
-          output: {
-            ...modePlan.webOutput,
-            ...(options.federation ? { chunkLoading: 'import' } : {}),
-          },
-        });
-      }
-      if (environment.name === 'node') {
-        return mergeConfig(rspackConfig, {
-          output: {
-            chunkFormat: resolvedServerOutput,
-            chunkLoading: nodeChunkLoading,
-            devtoolModuleFilenameTemplate: '[absolute-resource-path]',
-            devtoolFallbackModuleFilenameTemplate:
-              '[absolute-resource-path]?[hash]',
-            workerChunkLoading: nodeChunkLoading,
-            wasmLoading: 'fetch',
-            module: resolvedServerOutput === 'module',
-            chunkFilename: 'static/js/async/[name].js',
-          },
-        });
-      }
-      return rspackConfig;
-    });
-
     registerReactRouterEnvironmentOutput({
       api,
       federation: pluginOptions.federation,
       resolvedServerOutput,
+      webOutput: modePlan.webOutput,
     });
 
     if (modePlan.kind === 'classic' && useRouteModuleTransformLoader) {

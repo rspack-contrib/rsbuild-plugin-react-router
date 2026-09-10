@@ -114,6 +114,8 @@ describe('manifest', () => {
     expect(isManifestJsAsset('static/js/entry.client.js?v=abc12345')).toBe(true);
     expect(isManifestJsAsset('static/js/abc12345.js')).toBe(true);
     expect(isManifestJsAsset('static/js/abc12345-root.js')).toBe(true);
+    expect(isManifestJsAsset('static/js/routes/page.abc123.mjs')).toBe(true);
+    expect(isManifestJsAsset('static/js/routes/page.cjs?v=1')).toBe(true);
     expect(isManifestCssAsset('static/css/root.css?v=abc12345')).toBe(true);
     // HMR update files are recorded on `chunk.files` but are never the module.
     expect(isManifestJsAsset('static/js/root.abc12345.hot-update.js')).toBe(
@@ -608,6 +610,32 @@ describe('manifest', () => {
       expect(manifest.routes['routes/page'].module).toBe(
         '/static/js/0a1b2c3d-page.js'
       );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('fails the build instead of inventing a module path when a chunk has no script', async () => {
+    const { root, appDir } = createTempApp(`
+      export default function Page() { return null; }
+    `);
+    try {
+      const stats = {
+        assetsByChunkName: {
+          'entry.client': ['static/js/entry.client.js'],
+          root: ['static/js/root.js'],
+          // Metadata exists, but nothing the browser could import.
+          'routes/page': ['static/css/routes/page.css', 'static/js/routes/page.wasm'],
+        },
+      };
+
+      await expect(
+        generateReactRouterManifestForDev(routes, {}, stats, appDir, '/', {
+          isBuild: true,
+          rootRouteFile: 'root.tsx',
+          splitRouteModules: false,
+        })
+      ).rejects.toThrow(/Chunk "routes\/page" emitted no JavaScript asset/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

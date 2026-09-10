@@ -1,7 +1,7 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import path from "node:path";
 import getPort from "get-port";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 import { js } from "./helpers/create-fixture.js";
 import {
@@ -11,6 +11,7 @@ import {
   reactRouterServe,
   rsbuildConfig,
 } from "./helpers/rsbuild.js";
+import { observeAssetResponses } from "./helpers/asset-responses.js";
 
 // https://github.com/rstackjs/rsbuild-plugin-react-router/issues/129
 //
@@ -139,53 +140,10 @@ const appFiles = {
   `,
 };
 
-const listClientFiles = (cwd: string) =>
-  readdirSync(path.join(cwd, "build/client"), { recursive: true })
-    .map(String)
-    .map((file) => file.split(path.sep).join("/"));
-
-const readManifest = (cwd: string, files: string[]) => {
-  const manifestFile = files.find((file) =>
-    /^static\/js\/(?:[^/]+\/)*manifest-[a-f0-9]+\.js$/.test(file),
-  );
-  expect(manifestFile, "browser manifest asset").toBeDefined();
-  const source = readFileSync(
-    path.join(cwd, "build/client", manifestFile!),
-    "utf8",
-  );
-  // `window.__reactRouterManifest={...};` serialized with jsesc (single quotes).
-  const json = source
-    .replace(/^window\.__reactRouterManifest=/, "")
-    .replace(/;$/, "");
-  return new Function(`return (${json});`)() as {
-    entry: { module: string; imports: string[] };
-    routes: Record<string, { module: string; imports?: string[] }>;
-  };
+type BrowserManifest = {
+  entry: { module: string; imports: string[] };
+  routes: Record<string, { module: string }>;
 };
-
-async function exerciseRoute(page: Page, port: number) {
-  const pageErrors: Error[] = [];
-  page.on("pageerror", (error) => pageErrors.push(error));
-  const failed: string[] = [];
-  page.on("response", (response) => {
-    if (response.status() >= 400) failed.push(`${response.status()} ${response.url()}`);
-  });
-
-  await page.goto(`http://localhost:${port}/`, { waitUntil: "networkidle" });
-  await expect(page.locator("[data-home]")).toBeVisible();
-
-  // Client-side navigation loads routes/page from the manifest `module` URL;
-  // the clientLoader only exists in that module.
-  await page.locator("[data-link]").click();
-  await expect(page.locator("[data-source]")).toHaveText("clientLoader");
-  // Hydrated interactivity + async chunk through the browser publicPath.
-  await page.locator("[data-inc]").click();
-  await expect(page.locator("[data-inc]")).toHaveText("1");
-  await expect(page.locator("[data-lazy]")).toHaveText("lazy chunk loaded");
-
-  expect(failed).toEqual([]);
-  expect(pageErrors).toEqual([]);
-}
 
 for (const scheme of schemes) {
   test.describe(`Browser output filenames: ${scheme.name}`, () => {
@@ -218,35 +176,61 @@ for (const scheme of schemes) {
       await stop?.();
     });
 
-    test("emits files with the configured scheme and the manifest references them", async () => {
-      const files = listClientFiles(cwd);
-      expect(files.filter((f) => scheme.entryFile.test(f))).toHaveLength(1);
-      expect(files.filter((f) => scheme.routeFile.test(f))).toHaveLength(1);
-      expect(files.filter((f) => scheme.asyncFile.test(f)).length).toBeGreaterThan(0);
+    test("emits, references, and executes modules under the configured scheme", async ({
+      page,
+    }) => {
+      const files = readdirSync(path.join(cwd, "build/client"), { recursive: true })
+        .map(String)
+        .map((file) => file.split(path.sep).join("/"));
+      const observed = observeAssetResponses(page);
 
-      const manifest = readManifest(cwd, files);
-      expect(manifest.routes["routes/page"].module).toMatch(scheme.routeModuleUrl);
-      // The entry module URL must be the emitted entry file (plus any query).
-      const entryUrl = manifest.entry.module.split("?")[0].replace(/^\//, "");
-      expect(files).toContain(entryUrl);
-      expect(manifest.entry.imports).not.toContain(manifest.entry.module);
-    });
+      await test.step("emitted files follow the scheme", () => {
+        expect(files.filter((f) => scheme.entryFile.test(f))).toHaveLength(1);
+        expect(files.filter((f) => scheme.routeFile.test(f))).toHaveLength(1);
+        expect(files.filter((f) => scheme.asyncFile.test(f)).length).toBeGreaterThan(0);
+      });
 
-    test("manifest URLs resolve to the emitted JavaScript", async ({ request }) => {
-      const manifest = readManifest(cwd, listClientFiles(cwd));
-      for (const url of [
-        manifest.entry.module,
-        ...manifest.entry.imports,
-        manifest.routes["routes/page"].module,
-      ]) {
-        const response = await request.get(`http://localhost:${port}${url}`);
-        expect(response.status(), url).toBe(200);
-        expect(response.headers()["content-type"], url).toMatch(/javascript/);
-      }
-    });
+      await page.goto(`http://localhost:${port}/`, { waitUntil: "networkidle" });
+      await expect(page.locator("[data-home]")).toBeVisible();
 
-    test("routes hydrate and navigate through the manifest modules", async ({ page }) => {
-      await exerciseRoute(page, port);
+      const manifest = await test.step("browser manifest references the emitted files", async () => {
+        const manifest = await page.evaluate(
+          () => (window as unknown as { __reactRouterManifest: BrowserManifest }).__reactRouterManifest,
+        );
+        expect(manifest.routes["routes/page"].module).toMatch(scheme.routeModuleUrl);
+        const entryPath = manifest.entry.module.split("?")[0].replace(/^\//, "");
+        expect(files).toContain(entryPath);
+        expect(manifest.entry.imports).not.toContain(manifest.entry.module);
+        return manifest;
+      });
+
+      await test.step("client navigation runs the route module's clientLoader", async () => {
+        // The clientLoader only exists in the manifest-resolved routes/page
+        // module; a manifest pointing at the wrong existing file fails here.
+        await page.locator("[data-link]").click();
+        await expect(page.locator("[data-source]")).toHaveText("clientLoader");
+      });
+
+      await test.step("hydration and the lazy import work", async () => {
+        await page.locator("[data-inc]").click();
+        await expect(page.locator("[data-inc]")).toHaveText("1");
+        await expect(page.locator("[data-lazy]")).toHaveText("lazy chunk loaded");
+      });
+
+      await test.step("the browser fetched each manifest URL as JavaScript", () => {
+        for (const url of [
+          manifest.entry.module,
+          ...manifest.entry.imports,
+          manifest.routes["routes/page"].module,
+        ]) {
+          const response = observed.responses.get(`http://localhost:${port}${url}`);
+          expect(response, `response for ${url}`).toBeDefined();
+          expect(response!.status, url).toBe(200);
+          expect(response!.contentType, url).toMatch(/javascript/);
+        }
+        expect(observed.failures).toEqual([]);
+        expect(observed.pageErrors).toEqual([]);
+      });
     });
   });
 }

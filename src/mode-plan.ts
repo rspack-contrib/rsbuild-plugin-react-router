@@ -36,10 +36,7 @@ type CommonModePlan = {
   manifestChunkNames: Set<string>;
   webEntries: Record<string, string | RsbuildEntryDescription>;
   nodeEntries: Record<string, string | RsbuildEntryDescription>;
-  createVirtualModules(
-    publicPath: string,
-    jsDistPath: string
-  ): Record<string, string>;
+  createVirtualModules(publicPath: string): Record<string, string>;
   createResolveConfig(rootPath: string): Rspack.Configuration['resolve'];
   server: RsbuildConfig['server'] | undefined;
   webExternalsType: 'module' | undefined;
@@ -183,14 +180,13 @@ const createRscModePlan = async ({
         layer: RSC_LAYERS.rsc,
       },
     },
-    createVirtualModules: (publicPath: string, jsDistPath: string) =>
+    createVirtualModules: (publicPath: string) =>
       createReactRouterRscVirtualModules({
         allowedActionOrigins: allowedActionOriginsForBuild,
         appDirectory,
         basename,
         buildDirectory,
         isBuild,
-        jsDistPath,
         outputClientPath,
         publicPath,
         routeDiscovery,
@@ -314,7 +310,7 @@ const createClassicModePlan = async ({
       defaultEntryName,
       serverBundleEntries: artifacts.serverBundleEntries,
     }),
-    createVirtualModules: (publicPath: string, _jsDistPath: string) =>
+    createVirtualModules: (publicPath: string) =>
       createClassicVirtualModules({
         allowedActionOrigins: allowedActionOriginsForBuild,
         appDirectory,

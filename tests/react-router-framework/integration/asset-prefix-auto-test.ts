@@ -1,5 +1,8 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import getPort from "get-port";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 import { css, js } from "./helpers/create-fixture.js";
 import {
@@ -8,25 +11,23 @@ import {
   customDev,
   reactRouterConfig,
 } from "./helpers/rsbuild.js";
+import { rsbuildBin } from "./helpers/rsbuild-adapter.js";
+import { observeAssetResponses } from "./helpers/asset-responses.js";
 
 // https://github.com/rstackjs/rsbuild-plugin-react-router/issues/130
 //
-// Two different responsibilities share the asset prefix:
+// Two responsibilities share the asset prefix: the server renders the *initial*
+// asset URLs before any browser runtime exists, and the browser runtime loads
+// *async* JS and CSS. With `environments.web.output.assetPrefix: 'auto'`
+// Rspack derives the runtime base from the executing script's URL. The plugin
+// used to copy the normalized root prefix onto the web compiler's `publicPath`,
+// so CssExtract requested async stylesheets from the page origin.
 //
-//   - the server renders the *initial* asset URLs (scripts, manifest, entry
-//     CSS) before any browser runtime exists, so it needs an absolute prefix;
-//   - the browser runtime loads *async* JS and CSS. With
-//     `environments.web.output.assetPrefix: 'auto'` Rspack derives that base
-//     from the executing script's URL instead of a baked-in string.
-//
-// The plugin used to copy the (normalized) root prefix onto the web compiler's
-// `publicPath`, turning `'auto'` into `'/'`. ESM `import()` still resolved
-// against the script URL, but CssExtract builds async stylesheet URLs from
-// `__webpack_require__.p`, so async CSS was requested from the *page* origin.
-//
-// These tests serve HTML and assets from different places, make the page
-// origin return a real 404 for misplaced asset requests, and assert the async
-// stylesheet's request URL and the resulting computed style.
+// Both scenarios serve assets only from a second origin and make the page
+// origin return a real 404 for an emitted asset. The relocation scenario is
+// the negative control: its build-time root prefix is `/`, so the old
+// hard-coded mechanism resolves async CSS to the page origin and fails, while
+// automatic resolution follows the script to the asset origin.
 
 const ASYNC_CSS_COLOR = "rgb(255, 0, 0)";
 
@@ -62,33 +63,56 @@ const appFiles = {
       );
     }
   `,
-  // Production server: the page origin serves the React Router app only. When
-  // ASSET_MOUNT is set, the built client is served under that path on the same
-  // origin (root subdirectory case); when CDN_PORT is set, a second origin
-  // serves it under CDN_MOUNT instead. Either way, `/static/*` on the page
-  // origin is unmatched and React Router answers with a real 404.
+  // Production server: the page origin serves the React Router app only, so
+  // `/static/*` there is unmatched and React Router answers with a real 404.
+  // A second origin serves the built client under CDN_MOUNT. With
+  // REWRITE_BASE set, the serving boundary rewrites root-relative asset URLs in
+  // the server-facing references (the HTML document and the browser manifest)
+  // to that base -- the compiled browser runtime is never touched.
   "server.mjs": js`
+    import { readFileSync } from "node:fs";
     import { createRequestHandler } from "@react-router/express";
     import express from "express";
 
+    const rewriteBase = process.env.REWRITE_BASE;
+    const rewrite = (text, quote) =>
+      rewriteBase ? text.replaceAll(quote + "/static/", quote + rewriteBase + "static/") : text;
+
     const app = express();
-    if (process.env.ASSET_MOUNT) {
-      app.use(process.env.ASSET_MOUNT, express.static("build/client", { index: false }));
+    if (rewriteBase) {
+      // Buffer HTML responses and rewrite their asset URLs at the boundary.
+      app.use((_req, res, next) => {
+        const chunks = [];
+        const end = res.end.bind(res);
+        res.write = (chunk) => (chunks.push(Buffer.from(chunk)), true);
+        res.end = (chunk) => {
+          if (chunk) chunks.push(Buffer.from(chunk));
+          let body = Buffer.concat(chunks).toString("utf8");
+          if (String(res.getHeader("content-type")).includes("text/html")) body = rewrite(body, '"');
+          res.removeHeader("content-length");
+          return end(body);
+        };
+        next();
+      });
     }
     app.all("*", createRequestHandler({
       build: await import("./build/server/static/js/app.js"),
     }));
     app.listen(Number(process.env.PORT), () => console.log("app on " + process.env.PORT));
 
-    if (process.env.CDN_PORT) {
-      const cdn = express();
-      cdn.use((_req, res, next) => {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        next();
+    const cdn = express();
+    cdn.use((_req, res, next) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      next();
+    });
+    if (rewriteBase) {
+      cdn.get(process.env.CDN_MOUNT + "/static/js/manifest-:version.js", (req, res) => {
+        res.type("application/javascript");
+        res.send(rewrite(readFileSync("build/client" + req.path.slice(process.env.CDN_MOUNT.length), "utf8"), "'"));
       });
-      cdn.use(process.env.CDN_MOUNT, express.static("build/client", { index: false }));
-      cdn.listen(Number(process.env.CDN_PORT), () => console.log("cdn on " + process.env.CDN_PORT));
     }
+    cdn.use(process.env.CDN_MOUNT, express.static("build/client", { index: false }));
+    cdn.listen(Number(process.env.CDN_PORT), () => console.log("cdn on " + process.env.CDN_PORT));
   `,
 };
 
@@ -106,67 +130,49 @@ const rsbuildConfigFile = (rootAssetPrefix: string) => `
   });
 `;
 
-type Case = {
+type Scenario = {
   name: string;
-  /** Resolve the root prefix and server env once ports are known. */
-  setup: (ports: { port: number; cdnPort: number }) => {
-    rootAssetPrefix: string;
-    env: Record<string, string>;
-    /** Origin + mount every asset request must start with. */
-    assetBase: string;
-  };
+  /** Root `output.assetPrefix` baked into the build. */
+  rootAssetPrefix: (cdnBase: string) => string;
+  /** Whether the document's initial URLs are rewritten at the serving boundary. */
+  relocate: boolean;
 };
 
-const cases: Case[] = [
+const scenarios: Scenario[] = [
   {
-    name: "assets on a different origin (CDN) under a sub-path",
-    setup: ({ cdnPort }) => ({
-      rootAssetPrefix: `http://localhost:${cdnPort}/cdn/app/`,
-      env: { CDN_PORT: String(cdnPort), CDN_MOUNT: "/cdn/app" },
-      assetBase: `http://localhost:${cdnPort}/cdn/app/`,
-    }),
+    name: "server falls back to the root CDN prefix while the browser stays on 'auto'",
+    rootAssetPrefix: (cdnBase) => cdnBase,
+    relocate: false,
   },
   {
-    name: "assets on the page origin under a root subdirectory",
-    setup: ({ port }) => ({
-      rootAssetPrefix: "/app/",
-      env: { ASSET_MOUNT: "/app" },
-      assetBase: `http://localhost:${port}/app/`,
-    }),
+    name: "relocated runtime: build-time root prefix '/' differs from where assets are served",
+    rootAssetPrefix: () => "/",
+    relocate: true,
   },
 ];
 
-async function collectAssetRequests(page: Page) {
-  const requests: string[] = [];
-  const failures: string[] = [];
-  page.on("request", (request) => {
-    if (/\.(?:m?js|css)(?:\?|$)/.test(request.url())) requests.push(request.url());
-  });
-  page.on("response", (response) => {
-    if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`);
-  });
-  const errors: Error[] = [];
-  page.on("pageerror", (error) => errors.push(error));
-  return { requests, failures, errors };
-}
+const listClientFiles = (cwd: string) =>
+  readdirSync(path.join(cwd, "build/client"), { recursive: true })
+    .map(String)
+    .map((file) => file.split(path.sep).join("/"));
 
-for (const testCase of cases) {
-  test.describe(`output.assetPrefix 'auto' on web: ${testCase.name}`, () => {
+for (const scenario of scenarios) {
+  test.describe(`web assetPrefix 'auto': ${scenario.name}`, () => {
+    let cwd: string;
     let port: number;
     let cdnPort: number;
-    let assetBase: string;
+    let cdnBase: string;
     let rootAssetPrefix: string;
     let stop: () => Promise<void> | void;
 
     test.beforeAll(async () => {
       port = await getPort();
       cdnPort = await getPort();
-      const resolved = testCase.setup({ port, cdnPort });
-      assetBase = resolved.assetBase;
-      rootAssetPrefix = resolved.rootAssetPrefix;
-      const cwd = await createProject({
+      cdnBase = `http://localhost:${cdnPort}/cdn/app/`;
+      rootAssetPrefix = scenario.rootAssetPrefix(cdnBase);
+      cwd = await createProject({
         ...appFiles,
-        "rsbuild.config.ts": rsbuildConfigFile(resolved.rootAssetPrefix),
+        "rsbuild.config.ts": rsbuildConfigFile(rootAssetPrefix),
       });
       const result = build({ cwd });
       expect(result.stderr.toString()).toBe("");
@@ -174,62 +180,80 @@ for (const testCase of cases) {
       stop = await customDev({
         cwd,
         port,
-        env: { NODE_ENV: "production", PORT: String(port), ...resolved.env },
+        env: {
+          NODE_ENV: "production",
+          PORT: String(port),
+          CDN_PORT: String(cdnPort),
+          CDN_MOUNT: "/cdn/app",
+          ...(scenario.relocate ? { REWRITE_BASE: cdnBase } : {}),
+        },
       });
     });
     test.afterAll(async () => {
       await stop?.();
     });
 
-    test("the page origin does not serve assets", async ({ request }) => {
-      const response = await request.get(
-        `http://localhost:${port}/static/js/definitely-missing.js`,
-      );
-      expect(response.status()).toBe(404);
-    });
+    test("async CSS and JS resolve from the loaded runtime's origin", async ({ page, request }) => {
+      const files = listClientFiles(cwd);
+      const emittedCss = files.find((file) => /^static\/css\/async\/.*\.css$/.test(file));
+      expect(emittedCss, "an async stylesheet was emitted").toBeDefined();
 
-    test("server-rendered asset URLs use the root prefix", async ({ request }) => {
-      const response = await request.get(`http://localhost:${port}/`);
-      expect(response.status()).toBe(200);
-      const html = await response.text();
-      const urls = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css)(?:\?[^"]*)?)"/g)].map(
-        (match) => match[1],
-      );
-      expect(urls.length).toBeGreaterThan(0);
-      // Exactly the configured root prefix (absolute CDN URL, or root-relative
-      // subdirectory), not the web compiler's 'auto' folded into '/'.
-      for (const url of urls) {
-        expect(url.startsWith(rootAssetPrefix), `initial asset URL ${url}`).toBe(true);
-      }
-      // The browser compiler kept 'auto': no `/static/...` root-relative URLs
-      // and no baked prefix inside the server-rendered document.
-      expect(html).not.toMatch(/(?:src|href)="\/static\//);
-    });
+      await test.step("the final web compiler config keeps publicPath 'auto'", () => {
+        const inspect = spawnSync(process.argv[0], [rsbuildBin, "inspect", "--mode", "production"], {
+          cwd,
+          env: { ...process.env, NODE_ENV: "production" },
+        });
+        expect(inspect.status, inspect.stderr.toString()).toBe(0);
+        const webConfig = readFileSync(
+          path.join(cwd, "build/.rsbuild/rspack.config.web.mjs"),
+          "utf8",
+        );
+        // Complementary evidence only; the browser steps below are decisive.
+        expect.soft(webConfig).toMatch(/publicPath: 'auto'/);
+      });
 
-    test("async CSS and JS load from the asset origin and apply", async ({ page }) => {
-      const { requests, failures, errors } = await collectAssetRequests(page);
+      await test.step("the page origin cannot serve an emitted asset", async () => {
+        const wrongOrigin = await request.get(`http://localhost:${port}/${emittedCss}`);
+        expect(wrongOrigin.status()).toBe(404);
+        const rightOrigin = await request.get(`${cdnBase}${emittedCss}`);
+        expect(rightOrigin.status()).toBe(200);
+      });
 
+      const observed = observeAssetResponses(page);
       await page.goto(`http://localhost:${port}/`, { waitUntil: "networkidle" });
       await expect(page.locator("[data-home]")).toBeVisible();
 
-      const cssResponse = page.waitForResponse(
-        (response) => /\/static\/css\/async\//.test(response.url()),
-      );
-      await page.locator("[data-load]").click();
-      const asyncCss = await cssResponse;
+      await test.step("server-rendered initial asset URLs use the root prefix", async () => {
+        const initial = await page.evaluate(() =>
+          [...document.querySelectorAll("script[src], link[href]")].map(
+            (el) => el.getAttribute("src") ?? el.getAttribute("href") ?? "",
+          ),
+        );
+        expect(initial.length).toBeGreaterThan(0);
+        for (const url of initial) {
+          const expected = scenario.relocate ? cdnBase : rootAssetPrefix;
+          expect(url.startsWith(expected), `initial URL ${url}`).toBe(true);
+        }
+      });
 
-      // The defining #130 failure: async CSS requested from the page origin.
-      expect(asyncCss.url().startsWith(`${assetBase}static/css/async/`), asyncCss.url()).toBe(true);
-      expect(asyncCss.status()).toBe(200);
-      await expect(page.locator("[data-async]")).toHaveCSS("color", ASYNC_CSS_COLOR);
+      await test.step("the browser runtime loads async JS and CSS from the asset origin", async () => {
+        const cssResponse = page.waitForResponse((response) =>
+          /\/static\/css\/async\//.test(response.url()),
+        );
+        await page.locator("[data-load]").click();
+        const asyncCss = await cssResponse;
+        // The defining #130 failure: async CSS requested from the page origin.
+        expect(asyncCss.url().startsWith(`${cdnBase}static/css/async/`), asyncCss.url()).toBe(true);
+        expect(asyncCss.status()).toBe(200);
+        await expect(page.locator("[data-async]")).toHaveCSS("color", ASYNC_CSS_COLOR);
 
-      const asyncJs = requests.filter((url) => /\/static\/js\/async\//.test(url));
-      expect(asyncJs.length).toBeGreaterThan(0);
-      for (const url of requests) {
-        expect(url.startsWith(assetBase), `asset request ${url}`).toBe(true);
-      }
-      expect(failures).toEqual([]);
-      expect(errors).toEqual([]);
+        expect(observed.requests.some((url) => /\/static\/js\/async\//.test(url))).toBe(true);
+        for (const url of observed.requests) {
+          expect(url.startsWith(cdnBase), `asset request ${url}`).toBe(true);
+        }
+        expect(observed.failures).toEqual([]);
+        expect(observed.pageErrors).toEqual([]);
+      });
     });
   });
 }

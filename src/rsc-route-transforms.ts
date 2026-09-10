@@ -623,6 +623,12 @@ const createServerRouteEntry = async (
   let needsReactImport = false;
   let needsEnsureHmrImport = false;
   let needsStyleEntryImport = false;
+  const pushStylesheetLinks = (entryCssFilesExpression: string): void => {
+    lines.push(`    ...(${entryCssFilesExpression} ?? []).map(href =>`);
+    lines.push(
+      '      React.createElement("link", { key: href, rel: "stylesheet", href: href, precedence: "default" })),'
+    );
+  };
 
   // A client route whose default component is a client reference: its bundled
   // (non-vanilla) side-effect CSS is orphaned in the initial browser entry
@@ -651,12 +657,7 @@ const createServerRouteEntry = async (
         'export default function RscClientRouteWithStyles___(props) {'
       );
       lines.push('  return React.createElement(React.Fragment, null,');
-      lines.push(
-        `    ...(${RSC_ROUTE_STYLE_ENTRY_EXPORT}.entryCssFiles ?? []).map(href =>`
-      );
-      lines.push(
-        '      React.createElement("link", { key: href, rel: "stylesheet", href: href, precedence: "default" })),'
-      );
+      pushStylesheetLinks(`${RSC_ROUTE_STYLE_ENTRY_EXPORT}.entryCssFiles`);
       lines.push('    React.createElement(RscClientRouteDefault___, props),');
       lines.push('  );');
       lines.push('}');
@@ -682,12 +683,7 @@ const createServerRouteEntry = async (
       // graph contributes. Render those as stylesheet links at the top of the
       // stream (mirrors upstream's `import.meta.viteRsc.loadCss()`); React's
       // float support hoists them into `<head>`.
-      lines.push(
-        `    ...(${exportName}WithoutClientChunk.entryCssFiles ?? []).map(href =>`
-      );
-      lines.push(
-        '      React.createElement("link", { key: href, rel: "stylesheet", href: href, precedence: "default" })),'
-      );
+      pushStylesheetLinks(`${exportName}WithoutClientChunk.entryCssFiles`);
       lines.push(
         '    React.createElement(EnsureClientRouteModuleForHMR___, null),'
       );
