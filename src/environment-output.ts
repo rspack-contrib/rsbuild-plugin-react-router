@@ -1,5 +1,8 @@
 import type { RsbuildPluginAPI, Rspack } from '@rsbuild/core';
-import { ensureFederationAsyncStartup } from './federation.js';
+import {
+  ensureFederationAsyncStartup,
+  isolateFederationContainerRuntime,
+} from './federation.js';
 
 /**
  * Rspack `output` policy for the web and node environments, in two tiers:
@@ -65,11 +68,24 @@ export const registerReactRouterEnvironmentOutput = ({
         return config;
       }
 
+      if (federation && name === 'node' && config.splitChunks !== false) {
+        // `@module-federation/node` replaces Rspack's `readFileVm` chunk
+        // loader with one that tracks loaded chunks privately, so the initial
+        // chunks Rsbuild splits off a multi-entry server build (`chunks:
+        // 'all'`) never satisfy Rspack's startup gate and the async startup
+        // resolves to `undefined` instead of the server build's exports.
+        // Keep server code splitting to async chunks only (#132).
+        config.splitChunks = { ...config.splitChunks, chunks: 'async' };
+      }
+
       return mergeEnvironmentConfig(config, {
         tools: {
           rspack: rspackConfig => {
             if (federation) {
               ensureFederationAsyncStartup(rspackConfig);
+              if (name === 'web') {
+                isolateFederationContainerRuntime(rspackConfig);
+              }
             }
 
             if (name === 'node') {

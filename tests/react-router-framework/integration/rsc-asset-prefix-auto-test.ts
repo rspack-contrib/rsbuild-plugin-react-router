@@ -1,5 +1,5 @@
 import getPort from "get-port";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 import { css, js } from "./helpers/create-fixture.js";
 import {
@@ -8,6 +8,7 @@ import {
   customDev,
   reactRouterConfig,
 } from "./helpers/rsbuild.js";
+import { observeAssetResponses } from "./helpers/asset-responses.js";
 
 // RSC framework mode with the browser compiler on `'auto'` and the server's
 // initial asset URLs on a root prefix (#130). Everything the server renders
@@ -17,6 +18,7 @@ import {
 // reachable at the configured location; the page origin 404s `/static/*`.
 
 const ROUTE_CSS_COLOR = "rgb(0, 128, 0)";
+const COUNTER_CSS_COLOR = "rgb(0, 0, 255)";
 const ASYNC_CSS_COLOR = "rgb(255, 0, 0)";
 
 const appFiles = {
@@ -38,16 +40,25 @@ const appFiles = {
       return <p data-async className="async-component">async css</p>;
     }
   `,
+  // The initially rendered client component carries its own stylesheet: its
+  // URL comes from the client manifest's `cssFiles`, a third server-emitted
+  // reference alongside bootstrap scripts and route `entryCssFiles`.
+  "app/components/counter.css": css`
+    .counter {
+      color: ${COUNTER_CSS_COLOR};
+    }
+  `,
   "app/components/counter.tsx": js`
     "use client";
     import { lazy, Suspense, useState } from "react";
+    import "./counter.css";
     const AsyncComponent = lazy(() => import("./async-component"));
 
     export function Counter() {
       const [count, setCount] = useState(0);
       return (
         <>
-          <button data-inc onClick={() => setCount(count + 1)}>{count}</button>
+          <button data-inc className="counter" onClick={() => setCount(count + 1)}>{count}</button>
           {count > 0 ? (
             <Suspense fallback={<p data-fallback>loading</p>}>
               <AsyncComponent />
@@ -91,20 +102,6 @@ const appFiles = {
     cdn.listen(Number(process.env.CDN_PORT), () => console.log("cdn on " + process.env.CDN_PORT));
   `,
 };
-
-async function collectAssetRequests(page: Page) {
-  const requests: string[] = [];
-  const failures: string[] = [];
-  const errors: Error[] = [];
-  page.on("request", (request) => {
-    if (/\.(?:m?js|css)(?:\?|$)/.test(request.url())) requests.push(request.url());
-  });
-  page.on("response", (response) => {
-    if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`);
-  });
-  page.on("pageerror", (error) => errors.push(error));
-  return { requests, failures, errors };
-}
 
 test.describe("RSC: web assetPrefix 'auto' with assets on a CDN sub-path", () => {
   let port: number;
@@ -176,22 +173,24 @@ test.describe("RSC: web assetPrefix 'auto' with assets on a CDN sub-path", () =>
     expect(html).not.toMatch(/(?:src|href)="\/static\//);
   });
 
-  test("route CSS applies before hydration and async CSS loads from the CDN after", async ({
+  test("route and client-reference CSS apply before hydration; async CSS loads from the CDN after", async ({
     page,
   }) => {
-    const { requests, failures, errors } = await collectAssetRequests(page);
-
     // Before hydration: block scripts so only server-rendered markup and
-    // stylesheets are in play.
+    // stylesheets are in play. Intentional aborts are not HTTP failures, so
+    // they are not recorded by the observer used in the second phase.
     await page.route("**/*.js", (route) => route.abort());
     await page.goto(`http://localhost:${port}/`);
     await expect(page.locator("[data-home]")).toHaveCSS("color", ROUTE_CSS_COLOR);
+    await expect(page.locator("[data-inc]")).toHaveCSS("color", COUNTER_CSS_COLOR);
     await page.unroute("**/*.js");
 
     // After hydration: interaction works and the async stylesheet is fetched
     // from the CDN by the browser runtime's automatic public path.
+    const observed = observeAssetResponses(page);
     await page.goto(`http://localhost:${port}/`, { waitUntil: "networkidle" });
     await expect(page.locator("[data-home]")).toHaveCSS("color", ROUTE_CSS_COLOR);
+    await expect(page.locator("[data-inc]")).toHaveCSS("color", COUNTER_CSS_COLOR);
     const cssResponse = page.waitForResponse((response) =>
       /\/static\/css\/async\//.test(response.url()),
     );
@@ -201,10 +200,10 @@ test.describe("RSC: web assetPrefix 'auto' with assets on a CDN sub-path", () =>
     expect(asyncCss.url().startsWith(`${assetBase}static/css/async/`), asyncCss.url()).toBe(true);
     await expect(page.locator("[data-async]")).toHaveCSS("color", ASYNC_CSS_COLOR);
 
-    for (const url of requests) {
+    for (const url of observed.requests) {
       expect(url.startsWith(assetBase), `asset request ${url}`).toBe(true);
     }
-    expect(failures.filter((f) => !/\.js$/.test(f))).toEqual([]);
-    expect(errors).toEqual([]);
+    expect(observed.failures).toEqual([]);
+    expect(observed.pageErrors).toEqual([]);
   });
 });

@@ -179,6 +179,26 @@ export const isManifestJsAsset = (asset: string): boolean =>
 export const isManifestCssAsset = (asset: string): boolean =>
   /\.css(?:\?.*)?$/.test(asset);
 
+/**
+ * Browser JavaScript assets rspack's RSC manifest would drop: it only records
+ * chunk files whose emitted name ends in ".js", so `.mjs`/`.cjs` names and
+ * query-hash names (`[name].js?v=...`) vanish from `entryJsFiles` and the
+ * client manifest.
+ */
+export const collectUnsupportedRscScriptAssets = (compilation: {
+  chunks: Iterable<{ files?: Iterable<string> }>;
+}): string[] => {
+  const unsupported = new Set<string>();
+  for (const chunk of compilation.chunks) {
+    for (const file of chunk.files ?? []) {
+      if (isManifestJsAsset(file) && !file.endsWith('.js')) {
+        unsupported.add(file);
+      }
+    }
+  }
+  return [...unsupported];
+};
+
 const collectManifestFilesByName = <T>(
   items: ReactRouterManifestStatsLookup<T>,
   names: ReadonlySet<string> | undefined,

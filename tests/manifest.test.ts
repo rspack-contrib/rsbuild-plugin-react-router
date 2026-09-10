@@ -9,6 +9,7 @@ import {
   generateReactRouterManifestForDev,
   getReactRouterManifestForDev,
   getReactRouterManifestChunkNames,
+  collectUnsupportedRscScriptAssets,
   isManifestCssAsset,
   isManifestJsAsset,
 } from '../src/manifest';
@@ -613,6 +614,21 @@ describe('manifest', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('lists browser scripts the rspack RSC manifest would drop', () => {
+    const compilation = {
+      chunks: [
+        { files: new Set(['static/js/client-index.js?v=abc12345', 'static/css/index.css']) },
+        { files: new Set(['static/js/async/757.mjs', 'static/js/async/757.js']) },
+        { files: new Set(['static/js/ok.abc123.js', 'static/js/ok.js.map']) },
+        { files: undefined },
+      ],
+    };
+    expect(collectUnsupportedRscScriptAssets(compilation)).toEqual([
+      'static/js/client-index.js?v=abc12345',
+      'static/js/async/757.mjs',
+    ]);
   });
 
   it('fails the build instead of inventing a module path when a chunk has no script', async () => {
