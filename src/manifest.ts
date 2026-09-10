@@ -180,20 +180,73 @@ export const isManifestCssAsset = (asset: string): boolean =>
   /\.css(?:\?.*)?$/.test(asset);
 
 /**
- * Browser JavaScript assets rspack's RSC manifest would drop: it only records
- * chunk files whose emitted name ends in ".js", so `.mjs`/`.cjs` names and
- * query-hash names (`[name].js?v=...`) vanish from `entryJsFiles` and the
- * client manifest.
+ * The minimal compilation surface for `collectUnsupportedRscScriptAssets`.
+ * Chunks are classified as JavaScript-emitting from compilation metadata (their
+ * `javascript` content hash / modules), never from a filename.
  */
-export const collectUnsupportedRscScriptAssets = (compilation: {
-  chunks: Iterable<{ files?: Iterable<string> }>;
-}): string[] => {
+export type RscScriptAssetCompilation = {
+  chunks: Iterable<RscScriptAssetChunk>;
+  chunkGraph: {
+    getChunkModulesIterableBySourceType(
+      chunk: RscScriptAssetChunk,
+      sourceType: string
+    ): Iterable<unknown>;
+  };
+  outputOptions: {
+    filename?: unknown;
+    chunkFilename?: unknown;
+  };
+  getPath(filename: string, data: Record<string, unknown>): string;
+};
+
+export type RscScriptAssetChunk = {
+  contentHash?: Record<string, string>;
+  canBeInitial(): boolean;
+};
+
+const hasSome = (iterable: Iterable<unknown>): boolean => {
+  for (const _ of iterable) {
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Browser JavaScript assets rspack's RSC manifest would drop: it only records
+ * chunk files whose emitted name ends in ".js", so `.mjs` names, query-hash
+ * names (`[name].js?v=...`), or any other extension vanish from
+ * `entryJsFiles` and the client manifest. The emitted script name is derived
+ * from the chunk's own filename template (entry or async) the same way rspack
+ * emits it, so function templates and `tools.rspack` overrides are covered.
+ */
+export const collectUnsupportedRscScriptAssets = (
+  compilation: RscScriptAssetCompilation
+): string[] => {
   const unsupported = new Set<string>();
   for (const chunk of compilation.chunks) {
-    for (const file of chunk.files ?? []) {
-      if (isManifestJsAsset(file) && !file.endsWith('.js')) {
-        unsupported.add(file);
-      }
+    const emitsJavaScript =
+      chunk.contentHash?.javascript !== undefined ||
+      hasSome(
+        compilation.chunkGraph.getChunkModulesIterableBySourceType(
+          chunk,
+          'javascript'
+        )
+      );
+    if (!emitsJavaScript) {
+      continue;
+    }
+    const pathData = { chunk, contentHashType: 'javascript' };
+    const template = chunk.canBeInitial()
+      ? compilation.outputOptions.filename
+      : compilation.outputOptions.chunkFilename;
+    const resolvedTemplate =
+      typeof template === 'function' ? template(pathData) : template;
+    if (typeof resolvedTemplate !== 'string') {
+      continue;
+    }
+    const file = compilation.getPath(resolvedTemplate, pathData);
+    if (!file.endsWith('.js')) {
+      unsupported.add(file);
     }
   }
   return [...unsupported];

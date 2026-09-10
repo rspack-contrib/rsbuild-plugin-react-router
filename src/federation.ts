@@ -89,3 +89,29 @@ export const ensureFederationAsyncStartup = (
     };
   }
 };
+
+/**
+ * `@module-federation/node` replaces Rspack's `readFileVm` chunk loader with one
+ * that tracks loaded chunks privately, so initial chunks split off a
+ * multi-entry server build never satisfy Rspack's startup gate
+ * (`__webpack_require__.O`) and the async startup resolves to `undefined`
+ * instead of the server build's exports. Keep server code splitting to async
+ * chunks only. Runs at the final `tools.rspack` boundary so a user
+ * `optimization.splitChunks` override or a preset whose cache group selects
+ * `chunks: 'all'` (e.g. Rsbuild's `single-vendor`, `enforce: true`) cannot
+ * reintroduce initial chunk dependencies. A disabled `splitChunks` is kept.
+ */
+export const enforceAsyncOnlyServerSplitChunks = (
+  rspackConfig: Rspack.Configuration | undefined
+): void => {
+  const splitChunks = rspackConfig?.optimization?.splitChunks;
+  if (!splitChunks) {
+    return;
+  }
+  splitChunks.chunks = 'async';
+  for (const group of Object.values(splitChunks.cacheGroups ?? {})) {
+    if (group && typeof group === 'object' && 'chunks' in group) {
+      group.chunks = 'async';
+    }
+  }
+};

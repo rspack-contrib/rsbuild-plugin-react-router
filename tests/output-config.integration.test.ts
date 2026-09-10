@@ -189,6 +189,52 @@ describe('final Rspack output configuration (real Rsbuild)', () => {
     expect(node.optimization?.splitChunks).toMatchObject({ chunks: 'async' });
   });
 
+  it('keeps federation server splitting async-only past late overrides and presets', async () => {
+    const { node: overridden } = await inspect(
+      pluginReactRouter({ serverOutput: 'commonjs', federation: true }),
+      {
+        environments: {
+          node: {
+            // A user `tools.rspack` function runs after the plugin's defaults.
+            tools: {
+              rspack: config => {
+                config.optimization!.splitChunks = {
+                  ...(config.optimization!.splitChunks as object),
+                  chunks: 'all',
+                };
+              },
+            },
+          },
+        },
+      }
+    );
+    expect(overridden.optimization?.splitChunks).toMatchObject({ chunks: 'async' });
+
+    // Rsbuild's `single-vendor` preset adds an enforced cache group with
+    // `chunks: 'all'`, which Rspack prefers over the global filter.
+    const { node: preset } = await inspect(
+      pluginReactRouter({ serverOutput: 'commonjs', federation: true }),
+      { environments: { node: { splitChunks: { preset: 'single-vendor' } } } }
+    );
+    const splitChunks = preset.optimization?.splitChunks as {
+      chunks: unknown;
+      cacheGroups: Record<string, { chunks?: unknown; enforce?: boolean }>;
+    };
+    expect(splitChunks.chunks).toBe('async');
+    const groups = Object.values(splitChunks.cacheGroups);
+    expect(groups.length).toBeGreaterThan(0);
+    for (const group of groups) {
+      if ('chunks' in group) expect(group.chunks).toBe('async');
+    }
+
+    // An explicitly disabled splitChunks stays disabled.
+    const { node: disabled } = await inspect(
+      pluginReactRouter({ serverOutput: 'commonjs', federation: true }),
+      { environments: { node: { splitChunks: false } } }
+    );
+    expect(disabled.optimization?.splitChunks).toBe(false);
+  });
+
   it('keeps the shared browser runtime chunk without federation', async () => {
     const { web, node } = await inspect(pluginReactRouter());
     expect(web.optimization?.runtimeChunk).toBe('single');

@@ -40,14 +40,17 @@ const rsbuildConfigFile = (webConfig: string) => `
 
 const cases = [
   {
-    name: "query-hash entry filename",
-    webConfig: `{ output: { filename: { js: "client-[name].js?v=[contenthash:8]" } } }`,
+    // A function filename: only the emitted output can reveal what it returns.
+    name: "query-hash entry filename returned by a filename function",
+    webConfig: `{ output: { filename: { js: (pathData) => "client-" + pathData.chunk.name + ".js?v=[contenthash:8]" } } }`,
     dropped: /client-index\.js\?v=[a-f0-9]{8}/,
   },
   {
-    name: ".mjs async chunkFilename through tools.rspack",
-    webConfig: `{ tools: { rspack: (config) => { config.output.chunkFilename = "static/js/async/[name].mjs"; } } }`,
-    dropped: /static\/js\/async\/[^"]+\.mjs/,
+    // A valid ".js" entry keeps `entryJsFiles` non-empty; the client-reference
+    // chunks are what disappear, under an extension no classifier would guess.
+    name: "unfamiliar async chunkFilename extension through tools.rspack",
+    webConfig: `{ tools: { rspack: (config) => { config.output.chunkFilename = "static/js/async/[name].txt"; } } }`,
+    dropped: /static\/js\/async\/[^"]+\.txt/,
   },
 ];
 
