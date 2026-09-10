@@ -1069,7 +1069,9 @@ export const pluginReactRouter = (
           order: 'post',
           test: (resourcePath: string) => browserEntryModules.has(resourcePath),
         },
-        ({ code }) => `${code}\nawait Promise.resolve();\n`
+        // `export {}` keeps an otherwise-empty client module (a route with only
+        // server exports) parsed as ESM, which top-level await requires.
+        ({ code }) => `${code}\nexport {};\nawait Promise.resolve();\n`
       );
     }
 

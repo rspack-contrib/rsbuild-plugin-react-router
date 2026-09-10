@@ -187,6 +187,13 @@ const hostFiles = (remoteWebEntry: string, remoteNodeEntry: string) => ({
       },
     });
   `,
+  // A route with only server exports compiles to an empty browser module; the
+  // async-entry transform must still produce a valid ES module for it.
+  "app/routes/api.ts": js`
+    export async function loader() {
+      return Response.json({ ok: true });
+    }
+  `,
   "app/routes/_index.tsx": js`
     import Widget from "remote/Widget";
 
