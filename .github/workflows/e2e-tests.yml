@@ -44,11 +44,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run unit tests
-        run: pnpm test
-
+      # Unit tests exercise the built server-build worker (dist/).
       - name: Build package
         run: pnpm build
+
+      - name: Run unit tests
+        run: pnpm test
 
       - name: Run publint
         run: npx publint --errors-only

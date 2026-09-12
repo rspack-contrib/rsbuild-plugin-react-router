@@ -587,7 +587,12 @@ export const runReactRouterPrerenderBuild = async (
       mode: 'classic',
     });
     try {
-      const build: PrerenderServerBuild = await worker.describe();
+      const build: PrerenderServerBuild | undefined = worker.description;
+      if (!build) {
+        throw new Error(
+          `[${PLUGIN_NAME}] Server build worker returned no build description`
+        );
+      }
       const requestHandler = worker.handler;
 
       if (isPrerenderEnabled) {

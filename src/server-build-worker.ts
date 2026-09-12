@@ -128,22 +128,36 @@ if (mode === 'classic') {
   handler = resolveRscFetch(buildModule);
 }
 
+// One AbortController per in-flight request, so the Request the app receives
+// is aborted when the parent releases it (`createBuildRequestEffect`) or once
+// its response has been consumed here, mirroring the in-process contract.
+const controllers = new Map<number, AbortController>();
+const release = (id: number): void => {
+  controllers.get(id)?.abort();
+  controllers.delete(id);
+};
+
 port.on('message', async (message: ServerBuildWorkerRequest) => {
+  if (message.type === 'abort') {
+    release(message.id);
+    return;
+  }
+  const controller = new AbortController();
+  controllers.set(message.id, controller);
   try {
-    if (message.type === 'describe') {
-      post({ id: message.id, ok: true, description });
-      return;
-    }
     const response = await handler(
       new Request(message.url, {
         method: message.method,
         headers: message.headers,
         body: message.body as BodyInit | undefined,
+        signal: controller.signal,
       })
     );
     const body = new Uint8Array(await response.arrayBuffer());
+    release(message.id);
     post(
       {
+        type: 'reply',
         id: message.id,
         ok: true,
         response: {
@@ -156,8 +170,14 @@ port.on('message', async (message: ServerBuildWorkerRequest) => {
       [body.buffer as ArrayBuffer]
     );
   } catch (error) {
-    post({ id: message.id, ok: false, error: serializeError(error) });
+    release(message.id);
+    post({
+      type: 'reply',
+      id: message.id,
+      ok: false,
+      error: serializeError(error),
+    });
   }
 });
 
-post({ id: -1, ok: true, ready: true });
+post({ type: 'ready', description });

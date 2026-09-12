@@ -6,7 +6,6 @@ export type ServerBuildWorkerData = {
 };
 
 export type ServerBuildWorkerRequest =
-  | { id: number; type: 'describe' }
   | {
       id: number;
       type: 'request';
@@ -14,7 +13,9 @@ export type ServerBuildWorkerRequest =
       method: string;
       headers: [string, string][];
       body?: Uint8Array;
-    };
+    }
+  /** The parent released the request before a reply arrived. */
+  | { id: number; type: 'abort' };
 
 export type SerializedResponse = {
   status: number;
@@ -30,10 +31,10 @@ export type SerializedError = {
 };
 
 export type ServerBuildWorkerResponse =
-  | { id: number; ok: true; ready: true }
-  | { id: number; ok: true; description?: ServerBuildDescription }
-  | { id: number; ok: true; response: SerializedResponse }
-  | { id: number; ok: false; error: SerializedError };
+  /** Sent once the bundle is evaluated; carries the classic build description. */
+  | { type: 'ready'; description?: ServerBuildDescription }
+  | { type: 'reply'; id: number; ok: true; response: SerializedResponse }
+  | { type: 'reply'; id: number; ok: false; error: SerializedError };
 
 /**
  * The parts of a classic React Router server build that build-time rendering

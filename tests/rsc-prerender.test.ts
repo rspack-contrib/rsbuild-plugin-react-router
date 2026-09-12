@@ -19,7 +19,7 @@ import {
 // handler that always fails so the error reporting path is what's under test.
 rstest.mock('../src/server-build-worker-client', () => ({
   startServerBuildWorker: async () => ({
-    describe: async () => ({ routes: {}, assets: { routes: {} } }),
+    description: undefined,
     handler: async () => new Response(null, { status: 500 }),
     close: async () => {},
   }),
