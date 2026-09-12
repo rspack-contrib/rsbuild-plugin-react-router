@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
 import type { RsbuildPluginAPI } from '@rsbuild/core';
 import { dirname, relative, resolve } from 'pathe';
 import * as Effect from 'effect/Effect';
 import { PLUGIN_NAME, SPA_FALLBACK_HTML_FILE } from './constants.js';
+import { startServerBuildWorker } from './server-build-worker-client.js';
 import {
   createBuildRequestEffect,
   createBoundedPrerenderTasksEffect,
@@ -27,8 +27,9 @@ import { runPluginEffect } from './effect-runtime.js';
  *   inline `__FLIGHT_DATA` scripts, served for client-side navigations
  *
  * Instead of an HTTP round-trip through a preview server, the RSC server
- * bundle's default-exported `fetch` handler is invoked in-process, matching
- * how classic mode prerenders through `createRequestHandler`.
+ * bundle's default-exported `fetch` handler is invoked directly (in the
+ * server build worker), matching how classic mode prerenders through
+ * `createRequestHandler`.
  */
 
 export const SPA_FALLBACK_REQUEST_PATH: string = `/${SPA_FALLBACK_HTML_FILE}`;
@@ -143,29 +144,6 @@ const createRedirectHtml = ({
 </a>
 </body>
 </html>`;
-};
-
-const resolveRscRequestHandler = (
-  buildModule: unknown,
-  serverBuildPath: string
-): RscRequestHandler => {
-  const moduleRecord = buildModule as
-    | { default?: { fetch?: unknown; default?: { fetch?: unknown } } }
-    | undefined;
-  const handler =
-    typeof moduleRecord?.default?.fetch === 'function'
-      ? moduleRecord.default.fetch
-      : typeof moduleRecord?.default?.default?.fetch === 'function'
-        ? moduleRecord.default.default.fetch
-        : null;
-  if (!handler) {
-    throw new Error(
-      `[${PLUGIN_NAME}] RSC server build ${JSON.stringify(
-        serverBuildPath
-      )} must default-export an object with a fetch function.`
-    );
-  }
-  return handler as RscRequestHandler;
 };
 
 const writePrerenderedFile = async ({
@@ -330,11 +308,9 @@ export const runReactRouterRscPrerenderBuild = async (
   const clientBuildDir = resolve(buildDirectory, 'client');
   await mkdir(clientBuildDir, { recursive: true });
 
-  const previousBuildRequestFlag = process.env.IS_RR_BUILD_REQUEST;
-  process.env.IS_RR_BUILD_REQUEST = 'yes';
+  const worker = await startServerBuildWorker({ serverBuildPath, mode: 'rsc' });
   try {
-    const buildModule = await import(pathToFileURL(serverBuildPath).toString());
-    const handler = resolveRscRequestHandler(buildModule, serverBuildPath);
+    const handler: RscRequestHandler = worker.handler;
 
     api.logger.info(`Prerender: ${prerenderRequests.length} path(s)...`);
 
@@ -353,10 +329,6 @@ export const runReactRouterRscPrerenderBuild = async (
       )
     );
   } finally {
-    if (previousBuildRequestFlag === undefined) {
-      delete process.env.IS_RR_BUILD_REQUEST;
-    } else {
-      process.env.IS_RR_BUILD_REQUEST = previousBuildRequestFlag;
-    }
+    await worker.close();
   }
 };

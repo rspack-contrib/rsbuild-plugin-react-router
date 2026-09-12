@@ -199,9 +199,12 @@ const colorEnv = {
 export const build = ({
   cwd,
   env = {},
+  timeout,
 }: {
   cwd: string;
   env?: Record<string, string>;
+  /** Kill the build (SIGKILL) after this many ms; `status` is then `null`. */
+  timeout?: number;
 }) => {
   let nodeBin = process.argv[0];
   prepareFixtureProjectDependencies(cwd);
@@ -213,6 +216,8 @@ export const build = ({
       ...colorEnv,
       ...env,
     }),
+    timeout,
+    killSignal: "SIGKILL",
   });
 };
 
@@ -224,6 +229,12 @@ const formatBuildFailure = (result: ReturnType<typeof build>) => {
     stdout ? `stdout:\n${stdout}` : "stdout: <empty>",
     stderr ? `stderr:\n${stderr}` : "stderr: <empty>",
   ].join("\n\n");
+};
+
+/** Asserts a successful exit (a killed or hung build has `status: null`) and returns stdout. */
+export const expectBuildSucceeded = (result: ReturnType<typeof build>) => {
+  expect(result.status, formatBuildFailure(result)).toBe(0);
+  return result.stdout.toString("utf8");
 };
 
 export const reactRouterServe = async ({
@@ -509,7 +520,7 @@ export const test = base.extend<Fixtures>({
       let port = await getPort();
       let cwd = await createProject(await files({ port }));
       let result = build({ cwd });
-      expect(result.status, formatBuildFailure(result)).toBe(0);
+      expectBuildSucceeded(result);
       stop = await reactRouterServe({ cwd, port });
       return { port, cwd };
     });
@@ -522,7 +533,7 @@ export const test = base.extend<Fixtures>({
       let port = await getPort();
       let cwd = await createProject(await files({ port }), template);
       let result = build({ cwd });
-      expect(result.status, formatBuildFailure(result)).toBe(0);
+      expectBuildSucceeded(result);
       stop = await rsbuildPreview({ cwd, port });
       return { port, cwd };
     });

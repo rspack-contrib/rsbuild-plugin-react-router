@@ -530,6 +530,30 @@ export const pluginReactRouter = (
     let latestServerManifest: ReactRouterManifest | null = null;
     const latestServerManifestsByBundleId: Record<string, ReactRouterManifest> =
       {};
+    // The node `server-manifest` module's source is a constant; its real
+    // content is injected by a transform from the web compilation's emitted
+    // asset names. Rspack's persistent cache would therefore reuse a previous
+    // build's module even when those names changed (#136). The transform
+    // declares this file, which holds the captured manifests, as a file
+    // dependency so the cache invalidates exactly when the manifest changes.
+    const serverManifestStampPath = resolve(
+      api.context.cachePath,
+      'react-router',
+      'server-manifest.json'
+    );
+    // Bundle manifests derive from the base one, so the base is the stamp.
+    // Only rewrite on change: a bumped mtime would otherwise invalidate the
+    // module on every build and, if the cache dir is watched, rebuild node
+    // after every web rebuild in dev.
+    const writeServerManifestStamp = (): void => {
+      const stamp = JSON.stringify(latestServerManifest);
+      const previous = existsSync(serverManifestStampPath)
+        ? readFileSync(serverManifestStampPath, 'utf8')
+        : undefined;
+      if (stamp !== previous) {
+        fsExtra.outputFileSync(serverManifestStampPath, stamp);
+      }
+    };
 
     const routeByFilePath = new Map(
       Object.values(routes).map(route => [
@@ -756,6 +780,7 @@ export const pluginReactRouter = (
             latestServerManifestsByBundleId[bundleId] = bundleManifest;
             manifestsByEntryName[entryName] = bundleManifest;
           }
+          writeServerManifestStamp();
 
           if (!isBuild) {
             modePlan.artifacts.devRuntime.captureWeb(
@@ -1159,6 +1184,7 @@ export const pluginReactRouter = (
         resolvedServerOutput,
         performanceProfiler,
         getLatestServerManifest: () => latestServerManifest,
+        serverManifestStampPath,
         getLatestServerManifestByBundleId: bundleId =>
           latestServerManifestsByBundleId[bundleId],
         routes,

@@ -14,6 +14,7 @@ const config = defineConfig({
           'route-module-transform-loader':
             './src/route-module-transform-loader.ts',
           'rsc-route-transform-loader': './src/rsc-route-transform-loader.ts',
+          'server-build-worker': './src/server-build-worker.ts',
           'templates/entry.server': './src/templates/entry.server.tsx',
           'templates/entry.client': './src/templates/entry.client.tsx',
           'templates/entry.rsc': './src/templates/entry.rsc.tsx',

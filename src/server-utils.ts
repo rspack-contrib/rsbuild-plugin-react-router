@@ -88,8 +88,6 @@ export function generateServerBuild(
   `;
 }
 
-export { resolveServerBuildModule };
-
 export function resolveReactRouterServerBuild(
   buildModule: unknown
 ): Promise<ServerBuild> {

@@ -14,6 +14,8 @@ type RsbuildConfigBuildArgs = {
 
 type RsbuildConfigBaseArgs = {
   templateName?: TemplateName;
+  /** Rspack persistent cache, kept inside the fixture (fixtures share the template's node_modules). */
+  buildCache?: boolean;
   base?: string;
   defineNodeEnv?: boolean;
   envPrefixes?: string[];
@@ -153,6 +155,11 @@ export const rsbuildConfig = {
           ? [
               `distPath: { assets: ${JSON.stringify(args.assetsDir)} }, // Vite: build.assetsDir`,
             ]
+          : []),
+      ]),
+      ...configSection("performance", [
+        ...(args.buildCache
+          ? [`buildCache: { cacheDirectory: "./.rspack-cache" },`]
           : []),
       ]),
       ...configSection("source", [

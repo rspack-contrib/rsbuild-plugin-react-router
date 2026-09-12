@@ -1,14 +1,9 @@
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
 import fsExtra from 'fs-extra';
 import * as Effect from 'effect/Effect';
 import type { RsbuildPluginAPI } from '@rsbuild/core';
-import {
-  createRequestHandler,
-  matchRoutes,
-  type ServerBuild,
-} from 'react-router';
+import { matchRoutes } from 'react-router';
 import { dirname, relative, resolve } from 'pathe';
 import { PLUGIN_NAME, SPA_FALLBACK_HTML_FILE } from './constants.js';
 import { getBuildManifest } from './build-manifest.js';
@@ -31,23 +26,10 @@ import type {
   Config,
   ResolvedReactRouterConfig,
 } from './react-router-config.js';
-import { resolveServerBuildModule } from './server-utils.js';
+import { startServerBuildWorker } from './server-build-worker-client.js';
+import type { ServerBuildDescription } from './server-build-worker-protocol.js';
 import type { PluginOptions, Route } from './types.js';
 import { runPluginEffect, tryPluginPromise } from './effect-runtime.js';
-
-type BuildRouteModule = {
-  loader?: unknown;
-  default?: unknown;
-  ErrorBoundary?: unknown;
-};
-
-type PrerenderServerBuild = ServerBuild & {
-  routes: Record<string, { id?: string; module?: BuildRouteModule }>;
-  assets?: {
-    routes?: Record<string, { hasLoader?: boolean }>;
-  };
-  prerender?: string[];
-};
 
 type PrerenderBuildApi = Pick<
   RsbuildPluginAPI,
@@ -344,7 +326,7 @@ const handleSpaMode = async ({
   api,
 }: {
   handler: (request: Request) => Promise<Response>;
-  build: PrerenderServerBuild;
+  build: ServerBuildDescription;
   clientBuildDir: string;
   basename: string;
   api: PrerenderBuildApi;
@@ -459,7 +441,7 @@ const createPrerenderPathEffect = ({
   options,
 }: {
   path: string;
-  build: PrerenderServerBuild;
+  build: ServerBuildDescription;
   buildRoutes: ReturnType<typeof createPrerenderRoutes>;
   requestHandler: (request: Request) => Promise<Response>;
   clientBuildDir: string;
@@ -596,75 +578,83 @@ export const runReactRouterPrerenderBuild = async (
   await mkdir(clientBuildDir, { recursive: true });
 
   if (!ssr || isPrerenderEnabled) {
-    process.env.IS_RR_BUILD_REQUEST = 'yes';
-    const buildModule = await import(pathToFileURL(serverBuildPath).toString());
-    const build = (await resolveServerBuildModule(
-      buildModule,
-      `Server build ${JSON.stringify(serverBuildPath)}`
-    )) as PrerenderServerBuild;
-    const requestHandler = createRequestHandler(build, 'production');
-
-    if (isPrerenderEnabled) {
-      if (!ssr) {
-        const generated = latestBrowserManifest
-          ? {
-              manifest: latestBrowserManifest,
-              moduleExportsByRouteId: latestBrowserManifestModuleExports,
-            }
-          : await generateReactRouterManifestForDev(
-              routes,
-              pluginOptions,
-              clientStats,
-              appDirectory,
-              assetPrefix,
-              createReactRouterManifestOptions({
-                routeChunks: routeChunkOptions,
-                routeModuleAnalysis,
-              })
-            );
-        assertValidSsrFalsePrerenderExports({
-          routes,
-          manifestRoutes: generated.manifest.routes,
-          routeExports: generated.moduleExportsByRouteId,
-          prerenderPaths,
-          api,
-        });
+    const worker = await startServerBuildWorker({
+      serverBuildPath,
+      mode: 'classic',
+    });
+    try {
+      const build = worker.description;
+      if (!build) {
+        throw new Error(
+          `[${PLUGIN_NAME}] Server build worker returned no build description`
+        );
       }
+      const requestHandler = worker.handler;
 
-      validatePrerenderPathMatches(routes, prerenderPaths);
+      if (isPrerenderEnabled) {
+        if (!ssr) {
+          const generated = latestBrowserManifest
+            ? {
+                manifest: latestBrowserManifest,
+                moduleExportsByRouteId: latestBrowserManifestModuleExports,
+              }
+            : await generateReactRouterManifestForDev(
+                routes,
+                pluginOptions,
+                clientStats,
+                appDirectory,
+                assetPrefix,
+                createReactRouterManifestOptions({
+                  routeChunks: routeChunkOptions,
+                  routeModuleAnalysis,
+                })
+              );
+          assertValidSsrFalsePrerenderExports({
+            routes,
+            manifestRoutes: generated.manifest.routes,
+            routeExports: generated.moduleExportsByRouteId,
+            prerenderPaths,
+            api,
+          });
+        }
 
-      if (prerenderPaths.length > 0) {
-        api.logger.info(
-          `Prerender (html): ${prerenderPaths.length} path(s)...`
+        validatePrerenderPathMatches(routes, prerenderPaths);
+
+        if (prerenderPaths.length > 0) {
+          api.logger.info(
+            `Prerender (html): ${prerenderPaths.length} path(s)...`
+          );
+        }
+
+        const buildRoutes = createPrerenderRoutes(build.routes);
+        await runPluginEffect(
+          createBoundedPrerenderTasksEffect(
+            prerenderPaths,
+            getPrerenderConcurrency(prerenderConfig),
+            path =>
+              createPrerenderPathEffect({
+                path,
+                build,
+                buildRoutes,
+                requestHandler,
+                clientBuildDir,
+                options,
+              })
+          )
         );
       }
 
-      const buildRoutes = createPrerenderRoutes(build.routes);
-      await runPluginEffect(
-        createBoundedPrerenderTasksEffect(
-          prerenderPaths,
-          getPrerenderConcurrency(prerenderConfig),
-          path =>
-            createPrerenderPathEffect({
-              path,
-              build,
-              buildRoutes,
-              requestHandler,
-              clientBuildDir,
-              options,
-            })
-        )
-      );
-    }
-
-    if (!ssr) {
-      await handleSpaMode({
-        handler: requestHandler,
-        build,
-        clientBuildDir,
-        basename,
-        api,
-      });
+      if (!ssr) {
+        await handleSpaMode({
+          handler: requestHandler,
+          build,
+          clientBuildDir,
+          basename,
+          api,
+        });
+      }
+    } finally {
+      await worker.close();
     }
   }
 
