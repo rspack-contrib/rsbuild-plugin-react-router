@@ -530,6 +530,26 @@ export const pluginReactRouter = (
     let latestServerManifest: ReactRouterManifest | null = null;
     const latestServerManifestsByBundleId: Record<string, ReactRouterManifest> =
       {};
+    // The node `server-manifest` module's source is a constant; its real
+    // content is injected by a transform from the web compilation's emitted
+    // asset names. Rspack's persistent cache would therefore reuse a previous
+    // build's module even when those names changed (#136). The transform
+    // declares this file, which holds the captured manifests, as a file
+    // dependency so the cache invalidates exactly when the manifest changes.
+    const serverManifestStampPath = resolve(
+      api.context.cachePath,
+      'react-router',
+      'server-manifest.json'
+    );
+    const writeServerManifestStamp = (): void => {
+      fsExtra.outputFileSync(
+        serverManifestStampPath,
+        JSON.stringify({
+          base: latestServerManifest,
+          bundles: latestServerManifestsByBundleId,
+        })
+      );
+    };
 
     const routeByFilePath = new Map(
       Object.values(routes).map(route => [
@@ -732,6 +752,7 @@ export const pluginReactRouter = (
           };
 
           if (modePlan.kind !== 'classic') {
+            writeServerManifestStamp();
             return;
           }
 
@@ -756,6 +777,7 @@ export const pluginReactRouter = (
             latestServerManifestsByBundleId[bundleId] = bundleManifest;
             manifestsByEntryName[entryName] = bundleManifest;
           }
+          writeServerManifestStamp();
 
           if (!isBuild) {
             modePlan.artifacts.devRuntime.captureWeb(
@@ -1159,6 +1181,7 @@ export const pluginReactRouter = (
         resolvedServerOutput,
         performanceProfiler,
         getLatestServerManifest: () => latestServerManifest,
+        serverManifestStampPath,
         getLatestServerManifestByBundleId: bundleId =>
           latestServerManifestsByBundleId[bundleId],
         routes,

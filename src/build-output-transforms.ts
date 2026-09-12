@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import type { RsbuildPluginAPI, TransformHandler } from '@rsbuild/core';
 import jsesc from 'jsesc';
 import { relative } from 'pathe';
@@ -80,6 +81,8 @@ type RegisterBuildOutputTransformsOptions = {
   resolvedServerOutput: 'module' | 'commonjs';
   performanceProfiler: ReactRouterPerformanceProfiler;
   getLatestServerManifest: () => ReactRouterManifest | null;
+  /** File holding the captured manifests; a dependency of the server-manifest module. */
+  serverManifestStampPath: string;
   getLatestServerManifestByBundleId: (
     bundleId: string
   ) => ReactRouterManifest | undefined;
@@ -112,6 +115,7 @@ export const registerBuildOutputTransforms = ({
   resolvedServerOutput,
   performanceProfiler,
   getLatestServerManifest,
+  serverManifestStampPath,
   getLatestServerManifestByBundleId,
   routes,
   pluginOptions,
@@ -205,6 +209,14 @@ export const registerBuildOutputTransforms = ({
             };
           }
 
+          // Tie this module's cache identity to the manifest content: the
+          // virtual source never changes, so without this dependency Rspack's
+          // persistent cache serves a previous build's manifest (#136).
+          if (existsSync(serverManifestStampPath)) {
+            args.addDependency(serverManifestStampPath);
+          } else {
+            args.addMissingDependency(serverManifestStampPath);
+          }
           const bundleMatch = args.resource.match(
             /virtual\/react-router\/server-manifest(?:-([^?]+))?/
           );

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { createLogger } from '@rsbuild/core';
-import { describe, expect, it } from '@rstest/core';
+import { describe, expect, it, rstest } from '@rstest/core';
 import {
   SPA_FALLBACK_REQUEST_PATH,
   extractRscFlightData,
@@ -12,6 +12,18 @@ import {
   normalizeRscPrerenderBasename,
   runReactRouterRscPrerenderBuild,
 } from '../src/rsc-prerender';
+
+// The server bundle is evaluated in a worker shipped with `dist/`, which does
+// not exist when unit tests run from source; the worker itself is exercised by
+// the React Router integration suite (spa-build-process-test.ts). Stand in a
+// handler that always fails so the error reporting path is what's under test.
+rstest.mock('../src/server-build-worker-client', () => ({
+  startServerBuildWorker: async () => ({
+    describe: async () => ({ routes: {}, assets: { routes: {} } }),
+    handler: async () => new Response(null, { status: 500 }),
+    close: async () => {},
+  }),
+}));
 
 const flightScript = (chunk: string) =>
   `<script>(self.__FLIGHT_DATA||=[]).push(${JSON.stringify(chunk)})</script>`;
@@ -165,10 +177,7 @@ describe('runReactRouterRscPrerenderBuild', () => {
     try {
       const serverDirectory = resolve(buildDirectory, 'server');
       await mkdir(serverDirectory);
-      await writeFile(
-        resolve(serverDirectory, 'index.js'),
-        'export default { fetch: async () => new Response(null, { status: 500 }) };'
-      );
+      await writeFile(resolve(serverDirectory, 'index.js'), '');
 
       await expect(
         runReactRouterRscPrerenderBuild({

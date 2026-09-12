@@ -199,9 +199,12 @@ const colorEnv = {
 export const build = ({
   cwd,
   env = {},
+  timeout,
 }: {
   cwd: string;
   env?: Record<string, string>;
+  /** Kill the build (SIGKILL) after this many ms; `status` is then `null`. */
+  timeout?: number;
 }) => {
   let nodeBin = process.argv[0];
   prepareFixtureProjectDependencies(cwd);
@@ -213,6 +216,8 @@ export const build = ({
       ...colorEnv,
       ...env,
     }),
+    timeout,
+    killSignal: "SIGKILL",
   });
 };
 

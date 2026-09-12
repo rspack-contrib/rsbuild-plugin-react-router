@@ -185,7 +185,7 @@ React Router's SPA Mode still requires a build-time server render of the root ro
 When `ssr: false`:
 
 - The plugin builds both `web` and `node` internally.
-- It generates `build/client/index.html` by running the server build once (requesting `basename` with the `X-React-Router-SPA-Mode: yes` header).
+- It generates `build/client/index.html` by running the server build once (requesting `basename` with the `X-React-Router-SPA-Mode: yes` header). The server bundle is evaluated in a worker thread that is terminated afterwards, with `process.env.IS_RR_BUILD_REQUEST === 'yes'` set, so module-scope side effects in your root route's import graph run at build time but cannot keep `rsbuild build` alive. The same applies to prerendering.
 - It removes `build/server` after generating `index.html`, so the output is deployable as static assets.
 
 **Important:** In SPA mode, use `clientLoader` instead of `loader` for data loading since there's no server at runtime.

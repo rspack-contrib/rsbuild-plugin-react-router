@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
 import type { RsbuildPluginAPI } from '@rsbuild/core';
 import { dirname, relative, resolve } from 'pathe';
 import * as Effect from 'effect/Effect';
 import { PLUGIN_NAME, SPA_FALLBACK_HTML_FILE } from './constants.js';
+import { startServerBuildWorker } from './server-build-worker-client.js';
 import {
   createBuildRequestEffect,
   createBoundedPrerenderTasksEffect,
@@ -143,29 +143,6 @@ const createRedirectHtml = ({
 </a>
 </body>
 </html>`;
-};
-
-const resolveRscRequestHandler = (
-  buildModule: unknown,
-  serverBuildPath: string
-): RscRequestHandler => {
-  const moduleRecord = buildModule as
-    | { default?: { fetch?: unknown; default?: { fetch?: unknown } } }
-    | undefined;
-  const handler =
-    typeof moduleRecord?.default?.fetch === 'function'
-      ? moduleRecord.default.fetch
-      : typeof moduleRecord?.default?.default?.fetch === 'function'
-        ? moduleRecord.default.default.fetch
-        : null;
-  if (!handler) {
-    throw new Error(
-      `[${PLUGIN_NAME}] RSC server build ${JSON.stringify(
-        serverBuildPath
-      )} must default-export an object with a fetch function.`
-    );
-  }
-  return handler as RscRequestHandler;
 };
 
 const writePrerenderedFile = async ({
@@ -330,11 +307,11 @@ export const runReactRouterRscPrerenderBuild = async (
   const clientBuildDir = resolve(buildDirectory, 'client');
   await mkdir(clientBuildDir, { recursive: true });
 
-  const previousBuildRequestFlag = process.env.IS_RR_BUILD_REQUEST;
-  process.env.IS_RR_BUILD_REQUEST = 'yes';
+  // The server bundle runs in a worker that is terminated afterwards, so a
+  // handle its module graph opens cannot keep the build alive (#135).
+  const worker = await startServerBuildWorker({ serverBuildPath, mode: 'rsc' });
   try {
-    const buildModule = await import(pathToFileURL(serverBuildPath).toString());
-    const handler = resolveRscRequestHandler(buildModule, serverBuildPath);
+    const handler: RscRequestHandler = request => worker.handler(request);
 
     api.logger.info(`Prerender: ${prerenderRequests.length} path(s)...`);
 
@@ -353,10 +330,6 @@ export const runReactRouterRscPrerenderBuild = async (
       )
     );
   } finally {
-    if (previousBuildRequestFlag === undefined) {
-      delete process.env.IS_RR_BUILD_REQUEST;
-    } else {
-      process.env.IS_RR_BUILD_REQUEST = previousBuildRequestFlag;
-    }
+    await worker.close();
   }
 };
