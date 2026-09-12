@@ -1,19 +1,15 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { afterEach, describe, expect, it } from '@rstest/core';
+import { afterEach, beforeEach, describe, expect, it } from '@rstest/core';
 import { startServerBuildWorker } from '../src/server-build-worker-client';
 
 // Real worker threads against the built worker entry: the protocol has two
 // sides, and parent-only mocks cannot see whether the Request the app receives
 // is aborted or whether an idle worker exit is remembered.
+// Missing (run `pnpm build`) surfaces as the Worker's own module-not-found.
 const builtWorkerPath = resolve(__dirname, '../dist/server-build-worker.js');
-if (!existsSync(builtWorkerPath)) {
-  throw new Error(
-    `${builtWorkerPath} is missing: run \`pnpm build\` before \`rstest run\`.`
-  );
-}
 
 // An RSC-shaped server build (`export default { fetch }`) is the smallest
 // bundle the worker accepts; its routes exercise one lifecycle case each.
@@ -55,9 +51,8 @@ describe('server build worker', () => {
   let directory: string;
   let workers: Array<{ close(): Promise<void> }> = [];
 
-  const start = async (file = 'server.mjs') => {
-    directory ??= await mkdtemp(resolve(tmpdir(), 'rsbuild-rr-worker-'));
-    const serverBuildPath = resolve(directory, file);
+  const start = async () => {
+    const serverBuildPath = resolve(directory, 'server.mjs');
     await writeFile(serverBuildPath, serverBuildSource);
     const worker = await startServerBuildWorker(
       { serverBuildPath, mode: 'rsc' },
@@ -67,13 +62,14 @@ describe('server build worker', () => {
     return worker;
   };
 
+  beforeEach(async () => {
+    directory = await mkdtemp(resolve(tmpdir(), 'rsbuild-rr-worker-'));
+  });
+
   afterEach(async () => {
     await Promise.all(workers.map(worker => worker.close()));
     workers = [];
-    if (directory) {
-      await rm(directory, { recursive: true, force: true });
-      directory = undefined as unknown as string;
-    }
+    await rm(directory, { recursive: true, force: true });
   });
 
   it('proxies status, headers and body both ways', async () => {
@@ -122,9 +118,10 @@ describe('server build worker', () => {
 
   it('rejects requests sent after the worker exited while idle', async () => {
     const worker = await start();
-    expect(
-      await (await worker.handler(new Request('http://localhost/exit-soon'))).text()
-    ).toBe('bye');
+    const response = await worker.handler(
+      new Request('http://localhost/exit-soon')
+    );
+    expect(await response.text()).toBe('bye');
     // Nothing is pending when the worker exits; the exit must still be final.
     await settle(300);
     await expect(
@@ -144,7 +141,6 @@ describe('server build worker', () => {
   });
 
   it('fails to start when the bundle cannot be imported', async () => {
-    directory ??= await mkdtemp(resolve(tmpdir(), 'rsbuild-rr-worker-'));
     await expect(
       startServerBuildWorker(
         { serverBuildPath: resolve(directory, 'missing.mjs'), mode: 'rsc' },

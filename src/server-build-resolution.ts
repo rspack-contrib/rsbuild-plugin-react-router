@@ -1,7 +1,6 @@
 // Internal module: exposes ServerBuild resolution used by dev-runtime code.
 // External callers go through the Promise wrappers in server-utils.ts.
 import type { ServerBuild } from 'react-router';
-import { normalizeEffectError } from './effect-runtime.js';
 
 const RESOLVABLE_BUILD_EXPORTS = new Set([
   'allowedActionOrigins',
@@ -116,6 +115,6 @@ export async function resolveServerBuildModule(
       `[rsbuild-plugin-react-router] ${source} did not contain a valid React Router ServerBuild.`
     );
   } catch (cause) {
-    throw normalizeEffectError(cause);
+    throw cause instanceof Error ? cause : new Error(String(cause));
   }
 }

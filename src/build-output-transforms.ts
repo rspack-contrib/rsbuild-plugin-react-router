@@ -209,9 +209,8 @@ export const registerBuildOutputTransforms = ({
             };
           }
 
-          // Tie this module's cache identity to the manifest content: the
-          // virtual source never changes, so without this dependency Rspack's
-          // persistent cache serves a previous build's manifest (#136).
+          // Cache identity for a module whose source never changes (#136);
+          // see `serverManifestStampPath` in index.ts.
           if (existsSync(serverManifestStampPath)) {
             args.addDependency(serverManifestStampPath);
           } else {

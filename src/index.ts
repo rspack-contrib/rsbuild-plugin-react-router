@@ -541,14 +541,18 @@ export const pluginReactRouter = (
       'react-router',
       'server-manifest.json'
     );
+    // Bundle manifests derive from the base one, so the base is the stamp.
+    // Only rewrite on change: a bumped mtime would otherwise invalidate the
+    // module on every build and, if the cache dir is watched, rebuild node
+    // after every web rebuild in dev.
     const writeServerManifestStamp = (): void => {
-      fsExtra.outputFileSync(
-        serverManifestStampPath,
-        JSON.stringify({
-          base: latestServerManifest,
-          bundles: latestServerManifestsByBundleId,
-        })
-      );
+      const stamp = JSON.stringify(latestServerManifest);
+      const previous = existsSync(serverManifestStampPath)
+        ? readFileSync(serverManifestStampPath, 'utf8')
+        : undefined;
+      if (stamp !== previous) {
+        fsExtra.outputFileSync(serverManifestStampPath, stamp);
+      }
     };
 
     const routeByFilePath = new Map(
@@ -752,7 +756,6 @@ export const pluginReactRouter = (
           };
 
           if (modePlan.kind !== 'classic') {
-            writeServerManifestStamp();
             return;
           }
 

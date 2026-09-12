@@ -27,8 +27,9 @@ import { runPluginEffect } from './effect-runtime.js';
  *   inline `__FLIGHT_DATA` scripts, served for client-side navigations
  *
  * Instead of an HTTP round-trip through a preview server, the RSC server
- * bundle's default-exported `fetch` handler is invoked in-process, matching
- * how classic mode prerenders through `createRequestHandler`.
+ * bundle's default-exported `fetch` handler is invoked directly (in the
+ * server build worker), matching how classic mode prerenders through
+ * `createRequestHandler`.
  */
 
 export const SPA_FALLBACK_REQUEST_PATH: string = `/${SPA_FALLBACK_HTML_FILE}`;
@@ -307,11 +308,9 @@ export const runReactRouterRscPrerenderBuild = async (
   const clientBuildDir = resolve(buildDirectory, 'client');
   await mkdir(clientBuildDir, { recursive: true });
 
-  // The server bundle runs in a worker that is terminated afterwards, so a
-  // handle its module graph opens cannot keep the build alive (#135).
   const worker = await startServerBuildWorker({ serverBuildPath, mode: 'rsc' });
   try {
-    const handler: RscRequestHandler = request => worker.handler(request);
+    const handler: RscRequestHandler = worker.handler;
 
     api.logger.info(`Prerender: ${prerenderRequests.length} path(s)...`);
 

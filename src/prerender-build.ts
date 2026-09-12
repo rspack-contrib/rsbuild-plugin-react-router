@@ -31,8 +31,6 @@ import type { ServerBuildDescription } from './server-build-worker-protocol.js';
 import type { PluginOptions, Route } from './types.js';
 import { runPluginEffect, tryPluginPromise } from './effect-runtime.js';
 
-type PrerenderServerBuild = ServerBuildDescription;
-
 type PrerenderBuildApi = Pick<
   RsbuildPluginAPI,
   'logger' | 'getNormalizedConfig'
@@ -328,7 +326,7 @@ const handleSpaMode = async ({
   api,
 }: {
   handler: (request: Request) => Promise<Response>;
-  build: PrerenderServerBuild;
+  build: ServerBuildDescription;
   clientBuildDir: string;
   basename: string;
   api: PrerenderBuildApi;
@@ -443,7 +441,7 @@ const createPrerenderPathEffect = ({
   options,
 }: {
   path: string;
-  build: PrerenderServerBuild;
+  build: ServerBuildDescription;
   buildRoutes: ReturnType<typeof createPrerenderRoutes>;
   requestHandler: (request: Request) => Promise<Response>;
   clientBuildDir: string;
@@ -580,14 +578,12 @@ export const runReactRouterPrerenderBuild = async (
   await mkdir(clientBuildDir, { recursive: true });
 
   if (!ssr || isPrerenderEnabled) {
-    // The server bundle runs in a worker that is terminated afterwards, so a
-    // handle its module graph opens cannot keep the build alive (#135).
     const worker = await startServerBuildWorker({
       serverBuildPath,
       mode: 'classic',
     });
     try {
-      const build: PrerenderServerBuild | undefined = worker.description;
+      const build = worker.description;
       if (!build) {
         throw new Error(
           `[${PLUGIN_NAME}] Server build worker returned no build description`

@@ -1,10 +1,12 @@
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import type {
-  ServerBuildDescription,
-  ServerBuildWorkerData,
-  ServerBuildWorkerRequest,
-  ServerBuildWorkerResponse,
+import { normalizeEffectError } from './effect-runtime.js';
+import {
+  headerEntries,
+  type ServerBuildDescription,
+  type ServerBuildWorkerData,
+  type ServerBuildWorkerRequest,
+  type ServerBuildWorkerResponse,
 } from './server-build-worker-protocol.js';
 
 const defaultWorkerPath = fileURLToPath(
@@ -26,15 +28,6 @@ type Pending = {
   resolve: (reply: Reply) => void;
   reject: (error: Error) => void;
 };
-
-const headerEntries = (headers: Headers): [string, string][] => {
-  const entries: [string, string][] = [];
-  headers.forEach((value, key) => entries.push([key, value]));
-  return entries;
-};
-
-const toError = (error: unknown): Error =>
-  error instanceof Error ? error : new Error(String(error));
 
 const replyError = (reply: Extract<Reply, { ok: false }>): Error => {
   const error = new Error(reply.error.message);
@@ -85,7 +78,7 @@ export const startServerBuildWorker = async (
         entry?.resolve(message);
       });
       worker.on('error', error => {
-        fail(toError(error));
+        fail(normalizeEffectError(error));
         reject(failure);
       });
       worker.on('exit', code => {
@@ -108,12 +101,8 @@ export const startServerBuildWorker = async (
   return {
     description,
     async handler(request) {
-      if (failure) {
-        throw failure;
-      }
       const id = nextId++;
-      const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
-      const body = hasBody
+      const body = request.body
         ? new Uint8Array(await request.arrayBuffer())
         : undefined;
       // Relay the parent's release so the worker-side Request aborts too.
@@ -122,9 +111,13 @@ export const startServerBuildWorker = async (
           send({ type: 'abort', id });
         }
       };
-      request.signal.addEventListener('abort', onAbort, { once: true });
       const reply = await new Promise<Reply>((resolve, reject) => {
+        if (failure) {
+          reject(failure);
+          return;
+        }
         pending.set(id, { resolve, reject });
+        request.signal.addEventListener('abort', onAbort, { once: true });
         send(
           {
             type: 'request',
@@ -134,7 +127,7 @@ export const startServerBuildWorker = async (
             headers: headerEntries(request.headers),
             body,
           },
-          body ? [body.buffer as ArrayBuffer] : []
+          body ? [body.buffer] : []
         );
       }).finally(() => request.signal.removeEventListener('abort', onAbort));
       if (!reply.ok) {
@@ -146,12 +139,11 @@ export const startServerBuildWorker = async (
         headers,
         body: responseBody,
       } = reply.response;
-      return new Response(
-        status === 204 || status === 304 || status === 101
-          ? null
-          : (responseBody as unknown as BodyInit),
-        { status, statusText, headers }
-      );
+      return new Response(responseBody.byteLength ? responseBody : null, {
+        status,
+        statusText,
+        headers,
+      });
     },
     async close() {
       fail(new Error('Server build worker was closed'));

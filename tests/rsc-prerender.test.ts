@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { createLogger } from '@rsbuild/core';
@@ -19,7 +19,6 @@ import {
 // handler that always fails so the error reporting path is what's under test.
 rstest.mock('../src/server-build-worker-client', () => ({
   startServerBuildWorker: async () => ({
-    description: undefined,
     handler: async () => new Response(null, { status: 500 }),
     close: async () => {},
   }),
@@ -175,10 +174,6 @@ describe('runReactRouterRscPrerenderBuild', () => {
     );
 
     try {
-      const serverDirectory = resolve(buildDirectory, 'server');
-      await mkdir(serverDirectory);
-      await writeFile(resolve(serverDirectory, 'index.js'), '');
-
       await expect(
         runReactRouterRscPrerenderBuild({
           api: { logger: createLogger({ level: 'silent' }) },

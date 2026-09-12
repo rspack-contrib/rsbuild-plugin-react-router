@@ -1,29 +1,19 @@
-// Worker entry: evaluates a freshly built server bundle and serves requests to
-// it for build-time rendering (SPA-mode `index.html`, prerendering). Running
-// the bundle here instead of in the build process means any handle the app's
-// server graph creates at module scope (a `BroadcastChannel`, a timer, a
-// connection) dies with `worker.terminate()` and cannot keep `rsbuild build`
-// alive (#135). The worker sets `IS_RR_BUILD_REQUEST` for its own module
-// graph only.
+// Worker entry: evaluates a built server bundle and serves requests to it for
+// build-time rendering; see `startServerBuildWorker` for why this is a worker.
+// `IS_RR_BUILD_REQUEST` is set for this module graph only.
 import { parentPort, workerData } from 'node:worker_threads';
 import { pathToFileURL } from 'node:url';
-import { createRequestHandler } from 'react-router';
+import { createRequestHandler, type ServerBuild } from 'react-router';
+import { PLUGIN_NAME } from './constants.js';
 import { resolveServerBuildModule } from './server-build-resolution.js';
-import type {
-  ServerBuildWorkerData,
-  ServerBuildWorkerRequest,
-  ServerBuildWorkerResponse,
-  ServerBuildDescription,
+import {
+  headerEntries,
+  type ServerBuildWorkerData,
+  type ServerBuildWorkerRequest,
+  type ServerBuildWorkerResponse,
+  type ServerBuildDescription,
+  type SerializedError,
 } from './server-build-worker-protocol.js';
-
-type BuildRouteLike = {
-  id?: string;
-  parentId?: string;
-  path?: string;
-  index?: boolean;
-  caseSensitive?: boolean;
-  module?: Record<string, unknown>;
-};
 
 const port = parentPort;
 if (!port) {
@@ -40,13 +30,7 @@ const post = (
   port.postMessage(message, transfer);
 };
 
-const headerEntries = (headers: Headers): [string, string][] => {
-  const entries: [string, string][] = [];
-  headers.forEach((value, key) => entries.push([key, value]));
-  return entries;
-};
-
-const serializeError = (error: unknown) => {
+const serializeError = (error: unknown): SerializedError => {
   const value = error as { message?: unknown; stack?: unknown; name?: unknown };
   return {
     message: String(value?.message ?? error),
@@ -55,37 +39,36 @@ const serializeError = (error: unknown) => {
   };
 };
 
-const describeClassicBuild = (build: {
-  basename?: string;
-  prerender?: string[];
-  routes?: Record<string, BuildRouteLike>;
-  assets?: { routes?: Record<string, { hasLoader?: boolean }> };
-}): ServerBuildDescription => ({
-  basename: build.basename,
+const describeClassicBuild = (build: ServerBuild): ServerBuildDescription => ({
   prerender: build.prerender,
   routes: Object.fromEntries(
-    Object.entries(build.routes ?? {}).map(([id, route]) => [
-      id,
-      {
-        id: route.id,
-        parentId: route.parentId,
-        path: route.path,
-        index: route.index,
-        caseSensitive: route.caseSensitive,
-        module: {
-          default: route.module?.default !== undefined,
-          ErrorBoundary: route.module?.ErrorBoundary !== undefined,
-          loader: route.module?.loader !== undefined,
-        },
-      },
-    ])
+    Object.entries(build.routes).flatMap(([id, route]) =>
+      route
+        ? [
+            [
+              id,
+              {
+                id: route.id,
+                parentId: route.parentId,
+                path: route.path,
+                index: route.index,
+                caseSensitive: route.caseSensitive,
+                module: {
+                  default: route.module.default !== undefined,
+                  ErrorBoundary: route.module.ErrorBoundary !== undefined,
+                  loader: route.module.loader !== undefined,
+                },
+              },
+            ],
+          ]
+        : []
+    )
   ),
   assets: {
     routes: Object.fromEntries(
-      Object.entries(build.assets?.routes ?? {}).map(([id, route]) => [
-        id,
-        { hasLoader: route.hasLoader },
-      ])
+      Object.entries(build.assets.routes).flatMap(([id, route]) =>
+        route ? [[id, { hasLoader: route.hasLoader }]] : []
+      )
     ),
   },
 });
@@ -104,7 +87,7 @@ const resolveRscFetch = (
         : null;
   if (!fetch) {
     throw new Error(
-      `RSC server build ${JSON.stringify(
+      `[${PLUGIN_NAME}] RSC server build ${JSON.stringify(
         serverBuildPath
       )} must default-export an object with a fetch function.`
     );
@@ -120,9 +103,7 @@ if (mode === 'classic') {
     buildModule,
     `Server build ${JSON.stringify(serverBuildPath)}`
   );
-  description = describeClassicBuild(
-    build as unknown as Parameters<typeof describeClassicBuild>[0]
-  );
+  description = describeClassicBuild(build);
   handler = createRequestHandler(build, 'production');
 } else {
   handler = resolveRscFetch(buildModule);
@@ -149,7 +130,7 @@ port.on('message', async (message: ServerBuildWorkerRequest) => {
       new Request(message.url, {
         method: message.method,
         headers: message.headers,
-        body: message.body as BodyInit | undefined,
+        body: message.body,
         signal: controller.signal,
       })
     );
@@ -167,7 +148,7 @@ port.on('message', async (message: ServerBuildWorkerRequest) => {
           body,
         },
       },
-      [body.buffer as ArrayBuffer]
+      [body.buffer]
     );
   } catch (error) {
     release(message.id);
