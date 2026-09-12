@@ -28,7 +28,11 @@ const rsbuildConfigFile = ({
 
     export default defineConfig({
       plugins: [pluginReact(), ${plugin}()],
-      performance: { buildCache: ${String(buildCache)} },
+      // Fixtures share the template's node_modules, so keep the persistent
+      // cache inside the fixture instead of the default node_modules/.cache.
+      performance: {
+        buildCache: ${buildCache ? '{ cacheDirectory: "./.rspack-cache" }' : "false"},
+      },
     });
   `;
 };
